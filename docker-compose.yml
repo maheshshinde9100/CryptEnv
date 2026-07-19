@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cryptenv-postgres
+    environment:
+      POSTGRES_DB: cryptenv
+      POSTGRES_USER: cryptenv
+      POSTGRES_PASSWORD: cryptenv_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cryptenv -d cryptenv"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ./cryptenv-core
+      dockerfile: Dockerfile
+    container_name: cryptenv-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cryptenv
+      SPRING_DATASOURCE_USERNAME: cryptenv
+      SPRING_DATASOURCE_PASSWORD: cryptenv_password
+      JWT_SECRET: your-secret-key-change-this-in-production-at-least-256-bits
+      JWT_EXPIRATION: 86400000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./cryptenv-core:/app
+
+volumes:
+  postgres_data:
