@@ -50,7 +50,7 @@ public class AuthController {
                     authenticationService.getUserByEmail(loginDto.getEmail()),
                     "LOGIN",
                     "USER",
-                    jwtResponse.getUser().getId().toString(),
+                    jwtResponse.getUserId().toString(),
                     true,
                     request
             );
