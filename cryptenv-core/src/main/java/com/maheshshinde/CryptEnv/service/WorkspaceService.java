@@ -93,4 +93,11 @@ public class WorkspaceService {
                 .updatedAt(workspace.getUpdatedAt())
                 .build();
     }
+
+    @Transactional
+    public void deleteWorkspace(Long id) {
+        Workspace workspace = workspaceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + id));
+        workspaceRepository.delete(workspace);
+    }
 }
