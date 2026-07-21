@@ -50,12 +50,13 @@ public class SecurityService {
     }
 
     public boolean isOwner() {
-        return getCurrentUserRole() == Role.OWNER;
+        Role role = getCurrentUserRole();
+        return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER;
     }
 
     public boolean isAdmin() {
         Role role = getCurrentUserRole();
-        return role == Role.OWNER || role == Role.ADMIN;
+        return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER;
     }
 
     public boolean isDeveloper() {
@@ -64,6 +65,7 @@ public class SecurityService {
     }
 
     public boolean isAuditor() {
-        return getCurrentUserRole() == Role.AUDITOR;
+        Role role = getCurrentUserRole();
+        return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER || role == Role.AUDITOR;
     }
 }

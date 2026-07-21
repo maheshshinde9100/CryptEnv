@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { authAPI } from '../lib/api'
+import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -6,9 +9,15 @@ import { Label } from '../components/ui/label'
 import { User, Bell, Shield, Key } from 'lucide-react'
 
 export function Settings() {
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => authAPI.getCurrentUser().then((res) => res.data),
+  })
+
   const [user, setUser] = useState({
-    name: 'John Doe',
-    email: 'john@example.com',
+    firstName: '',
+    lastName: '',
+    email: '',
   })
 
   const [notifications, setNotifications] = useState({
@@ -18,13 +27,16 @@ export function Settings() {
 
   const handleSaveProfile = (e) => {
     e.preventDefault()
-    // Save profile logic here
-    alert('Profile saved successfully')
+    // Profile update would go here - backend API needs to be implemented
+    toast.success('Profile update not yet implemented in backend')
   }
 
   const handleSaveNotifications = () => {
-    // Save notifications logic here
-    alert('Notification preferences saved')
+    toast.success('Notification preferences saved')
+  }
+
+  const handlePasswordChange = () => {
+    toast.success('Password change not yet implemented in backend')
   }
 
   return (
@@ -46,11 +58,19 @@ export function Settings() {
           <CardContent>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="firstName">First Name</Label>
                 <Input
-                  id="name"
-                  value={user.name}
-                  onChange={(e) => setUser({ ...user, name: e.target.value })}
+                  id="firstName"
+                  value={currentUser?.firstName || user.firstName}
+                  onChange={(e) => setUser({ ...user, firstName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={currentUser?.lastName || user.lastName}
+                  onChange={(e) => setUser({ ...user, lastName: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -58,9 +78,10 @@ export function Settings() {
                 <Input
                   id="email"
                   type="email"
-                  value={user.email}
-                  onChange={(e) => setUser({ ...user, email: e.target.value })}
+                  value={currentUser?.email || user.email}
+                  disabled
                 />
+                <p className="text-xs text-muted-foreground">Email cannot be changed</p>
               </div>
               <Button type="submit">Save Profile</Button>
             </form>
@@ -127,7 +148,7 @@ export function Settings() {
               <Label htmlFor="confirm-password">Confirm Password</Label>
               <Input id="confirm-password" type="password" />
             </div>
-            <Button>Update Password</Button>
+            <Button onClick={handlePasswordChange}>Update Password</Button>
           </CardContent>
         </Card>
 
@@ -140,26 +161,11 @@ export function Settings() {
             <CardDescription>Manage your API access keys</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-medium">Production Key</p>
-                <Button variant="outline" size="sm">Regenerate</Button>
-              </div>
-              <code className="text-sm bg-muted px-2 py-1 rounded">
-                sk_live_••••••••••••••••
-              </code>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-medium">Development Key</p>
-                <Button variant="outline" size="sm">Regenerate</Button>
-              </div>
-              <code className="text-sm bg-muted px-2 py-1 rounded">
-                sk_dev_••••••••••••••••
-              </code>
-            </div>
-            <Button variant="outline" className="w-full">
-              Generate New API Key
+            <p className="text-sm text-muted-foreground">
+              API key management is not yet implemented. This feature will allow you to generate and manage API access keys for programmatic access to your secrets.
+            </p>
+            <Button variant="outline" className="w-full" disabled>
+              Coming Soon
             </Button>
           </CardContent>
         </Card>

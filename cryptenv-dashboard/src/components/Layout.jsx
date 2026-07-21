@@ -1,5 +1,8 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { authAPI } from '../lib/api'
+import { toast } from 'sonner'
 import { Button } from './ui/button'
 import { 
   LayoutDashboard, 
@@ -18,6 +21,19 @@ export function Layout() {
   const [isDark, setIsDark] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
+  const logoutMutation = useMutation({
+    mutationFn: () => authAPI.logout(),
+    onSuccess: () => {
+      localStorage.removeItem('token')
+      navigate('/login')
+      toast.success('Logged out successfully')
+    },
+    onError: () => {
+      localStorage.removeItem('token')
+      navigate('/login')
+    },
+  })
+
   useEffect(() => {
     const isDarkMode = localStorage.getItem('darkMode') === 'true'
     setIsDark(isDarkMode)
@@ -34,8 +50,7 @@ export function Layout() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    navigate('/login')
+    logoutMutation.mutate()
   }
 
   const navItems = [
@@ -72,6 +87,7 @@ export function Layout() {
               variant="ghost"
               size="icon"
               onClick={handleLogout}
+              disabled={logoutMutation.isPending}
             >
               <LogOut className="h-5 w-5" />
             </Button>
