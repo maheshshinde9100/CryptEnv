@@ -1,1 +1,2 @@
 cryptenv-core/src/main/resources/application.properties
+cryptenv-cli/node_modules
