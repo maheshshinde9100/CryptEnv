@@ -64,4 +64,9 @@ public class AuthenticationService {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         return userService.getUserById(userPrincipal.getId());
     }
+
+    @Transactional(readOnly = true)
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null);
+    }
 }
