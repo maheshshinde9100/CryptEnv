@@ -73,4 +73,9 @@ public class User {
     @ManyToMany(mappedBy = "members")
     @Builder.Default
     private Set<Workspace> memberWorkspaces = new HashSet<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Role role = Role.DEVELOPER;
 }
