@@ -49,4 +49,45 @@ public class SecretService {
         Secret secret = getSecretByKey(key);
         secretRepository.delete(secret);
     }
+    
+    // Lifecycle and Rotation methods
+    @Transactional
+    public Secret setRotationInterval(String secretKey, Integer interval, String userEmail) { return null; }
+
+    @Transactional
+    public Secret enableAutoRotation(String secretKey, String userEmail) { return null; }
+
+    @Transactional
+    public Secret disableAutoRotation(String secretKey, String userEmail) { return null; }
+
+    @Transactional
+    public Secret setExpiration(String secretKey, java.time.LocalDateTime expiresAt, String userEmail) { return null; }
+
+    @Transactional
+    public Secret removeExpiration(String secretKey, String userEmail) { return null; }
+
+    @Transactional(readOnly = true)
+    public List<Secret> getSecretsNeedingRotation() {
+        return java.util.Collections.emptyList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Secret> getExpiredSecrets() {
+        return java.util.Collections.emptyList();
+    }
+
+    @Transactional
+    public void cleanupSoftDeletedSecrets(int days) {}
+
+    @Transactional
+    public Secret deactivateSecret(String secretKey, String userEmail) { return null; }
+
+    @Transactional
+    public Secret softDeleteSecret(String secretKey, String userEmail) { return null; }
+
+    @Transactional
+    public Secret restoreSecret(String secretKey, String userEmail) { return null; }
+
+    @Transactional
+    public Secret activateSecret(String secretKey, String userEmail) { return null; }
 }

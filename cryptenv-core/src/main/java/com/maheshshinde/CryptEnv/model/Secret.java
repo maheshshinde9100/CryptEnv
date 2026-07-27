@@ -48,6 +48,32 @@ public class Secret {
     @Column(nullable = false)
     @Builder.Default
     private Integer version = 1;
+    
+    @Column(name = "current_version")
+    @Builder.Default
+    private Integer currentVersion = 1;
+    
+    @Column(name = "auto_rotate")
+    @Builder.Default
+    private Boolean autoRotate = false;
+    
+    @Column(name = "rotation_interval_days")
+    private Integer rotationIntervalDays;
+    
+    @Column(name = "last_rotated_at")
+    private LocalDateTime lastRotatedAt;
+    
+    @Column(name = "next_rotation_at")
+    private LocalDateTime nextRotationAt;
+    
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+    
+    @Column(name = "updated_by_email")
+    private String updatedByEmail;
+    
+    @Column(name = "encrypted_value", columnDefinition = "TEXT")
+    private String encryptedValue;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
