@@ -30,6 +30,7 @@ export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout'),
+  getCurrentUser: () => api.get('/auth/me'),
 }
 
 export const secretsAPI = {
@@ -49,10 +50,22 @@ export const workspaceAPI = {
 }
 
 export const environmentAPI = {
-  list: (workspaceId) => api.get(`/workspaces/${workspaceId}/environments`),
-  create: (workspaceId, data) => api.post(`/workspaces/${workspaceId}/environments`, data),
-  update: (id, data) => api.put(`/environments/${id}`, data),
+  list: (workspaceId) => api.get(`/environments/workspace/${workspaceId}`),
+  create: (data) => api.post('/environments', data),
+  get: (id) => api.get(`/environments/${id}`),
+  toggle: (id) => api.patch(`/environments/${id}/toggle`),
   delete: (id) => api.delete(`/environments/${id}`),
+}
+
+export const auditLogAPI = {
+  list: (params) => api.get('/audit-logs', { params }),
+  getUserLogs: (userId, params) => api.get(`/audit-logs/user/${userId}`, { params }),
+  getActionLogs: (action, params) => api.get(`/audit-logs/action/${action}`, { params }),
+  getResourceLogs: (resourceType, resourceId, params) => api.get(`/audit-logs/resource/${resourceType}/${resourceId}`, { params }),
+}
+
+export const memberAPI = {
+  invite: (workspaceId, email) => api.post(`/workspaces/${workspaceId}/members`, null, { params: { email } }),
 }
 
 export default api

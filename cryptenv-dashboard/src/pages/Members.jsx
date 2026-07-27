@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { workspaceAPI, memberAPI } from '../lib/api'
+import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -9,28 +12,53 @@ import { Skeleton } from '../components/ui/skeleton'
 import { Search, Plus, Mail, Shield, User } from 'lucide-react'
 
 export function Members() {
+  const queryClient = useQueryClient()
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null)
 
-  const members = [
-    { id: 1, name: 'John Doe', email: 'john@example.com', role: 'Owner', joined: '2024-01-15' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Admin', joined: '2024-02-20' },
-    { id: 3, name: 'Bob Johnson', email: 'bob@example.com', role: 'Member', joined: '2024-03-10' },
-  ]
+  const { data: workspaces, isLoading: workspacesLoading } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => workspaceAPI.list().then((res) => res.data),
+  })
+
+  const { data: selectedWorkspace } = useQuery({
+    queryKey: ['workspace', selectedWorkspaceId],
+    queryFn: () => workspaceAPI.get(selectedWorkspaceId).then((res) => res.data),
+    enabled: !!selectedWorkspaceId,
+  })
+
+  const inviteMutation = useMutation({
+    mutationFn: (email) => memberAPI.invite(selectedWorkspaceId, email),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['workspace', selectedWorkspaceId])
+      toast.success('Member invited successfully')
+      setIsInviteDialogOpen(false)
+      setInviteEmail('')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to invite member')
+    },
+  })
+
+  const handleInvite = (e) => {
+    e.preventDefault()
+    inviteMutation.mutate(inviteEmail)
+  }
+
+  const members = selectedWorkspace?.memberUsernames?.map((username, index) => ({
+    id: index,
+    name: username,
+    email: `${username.toLowerCase()}@example.com`,
+    role: username === selectedWorkspace.ownerUsername ? 'Owner' : 'Member',
+    joined: new Date().toISOString().split('T')[0],
+  })) || []
 
   const filteredMembers = members.filter((member) =>
     member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
-
-  const handleInvite = (e) => {
-    e.preventDefault()
-    // Invite logic here
-    alert(`Invitation sent to ${inviteEmail}`)
-    setIsInviteDialogOpen(false)
-    setInviteEmail('')
-  }
 
   const getRoleBadge = (role) => {
     const colors = {
@@ -65,6 +93,23 @@ export function Members() {
         </CardHeader>
         <CardContent>
           <div className="mb-4">
+            <label className="text-sm font-medium mb-2 block">Select Workspace</label>
+            {workspacesLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <select
+                value={selectedWorkspaceId || ''}
+                onChange={(e) => setSelectedWorkspaceId(Number(e.target.value))}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select a workspace</option>
+                {workspaces?.map((ws) => (
+                  <option key={ws.id} value={ws.id}>{ws.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -72,22 +117,26 @@ export function Members() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
+                disabled={!selectedWorkspaceId}
               />
             </div>
           </div>
 
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMembers.map((member) => (
+          {!selectedWorkspaceId ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Select a workspace to view members</p>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Member</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMembers.length > 0 ? filteredMembers.map((member) => (
                   <TableRow key={member.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -118,10 +167,17 @@ export function Members() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        No members found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -154,7 +210,9 @@ export function Members() {
               </select>
             </div>
             <DialogFooter>
-              <Button type="submit">Send Invitation</Button>
+              <Button type="submit" disabled={inviteMutation.isPending}>
+                {inviteMutation.isPending ? 'Sending...' : 'Send Invitation'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

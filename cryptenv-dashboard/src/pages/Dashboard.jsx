@@ -28,18 +28,6 @@ export function Dashboard() {
       icon: FolderOpen,
       loading: workspacesLoading,
     },
-    {
-      title: 'Team Members',
-      value: '3',
-      icon: Users,
-      loading: false,
-    },
-    {
-      title: 'Active Sessions',
-      value: '5',
-      icon: Activity,
-      loading: false,
-    },
   ]
 
   return (

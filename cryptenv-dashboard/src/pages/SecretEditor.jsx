@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { secretsAPI } from '../lib/api'
+import { secretsAPI, environmentAPI, workspaceAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { ArrowLeft } from 'lucide-react'
 
 export function SecretEditor() {
@@ -17,6 +18,20 @@ export function SecretEditor() {
 
   const [secretKey, setSecretKey] = useState('')
   const [secretValue, setSecretValue] = useState('')
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
+  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState('')
+  const [description, setDescription] = useState('')
+
+  const { data: workspaces } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => workspaceAPI.list().then((res) => res.data),
+  })
+
+  const { data: environments } = useQuery({
+    queryKey: ['environments', selectedWorkspaceId],
+    queryFn: () => environmentAPI.list(selectedWorkspaceId).then((res) => res.data),
+    enabled: !!selectedWorkspaceId,
+  })
 
   const { data: existingSecret } = useQuery({
     queryKey: ['secret', key],
@@ -55,7 +70,12 @@ export function SecretEditor() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const data = { key: secretKey, value: secretValue }
+    const data = { 
+      key: secretKey, 
+      value: secretValue,
+      environmentId: selectedEnvironmentId,
+      description
+    }
 
     if (isEdit) {
       updateMutation.mutate(data)
@@ -89,6 +109,36 @@ export function SecretEditor() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isEdit && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="workspace">Workspace</Label>
+                  <Select value={selectedWorkspaceId} onValueChange={(val) => { setSelectedWorkspaceId(val); setSelectedEnvironmentId('') }} required>
+                    <SelectTrigger id="workspace">
+                      <SelectValue placeholder="Select workspace" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workspaces?.map((ws) => (
+                        <SelectItem key={ws.id} value={ws.id.toString()}>{ws.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="environment">Environment</Label>
+                  <Select value={selectedEnvironmentId} onValueChange={setSelectedEnvironmentId} required disabled={!selectedWorkspaceId}>
+                    <SelectTrigger id="environment">
+                      <SelectValue placeholder="Select environment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {environments?.map((env) => (
+                        <SelectItem key={env.id} value={env.id.toString()}>{env.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div className="space-y-2">
               <Label htmlFor="key">Secret Key</Label>
               <Input
@@ -114,6 +164,15 @@ export function SecretEditor() {
                 value={secretValue}
                 onChange={(e) => setSecretValue(e.target.value)}
                 required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Input
+                id="description"
+                placeholder="Brief description of this secret"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
             <div className="flex gap-4">

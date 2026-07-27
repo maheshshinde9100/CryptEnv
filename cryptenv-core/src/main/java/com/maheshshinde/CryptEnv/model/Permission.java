@@ -30,7 +30,10 @@ public enum Permission {
             case DEVELOPER:
                 return permission == Permission.SECRET_READ ||
                        permission == Permission.SECRET_WRITE ||
-                       permission == Permission.WORKSPACE_READ;
+                       permission == Permission.SECRET_DELETE ||
+                       permission == Permission.WORKSPACE_READ ||
+                       permission == Permission.WORKSPACE_WRITE ||
+                       permission == Permission.WORKSPACE_DELETE;
             case AUDITOR:
                 return permission == Permission.SECRET_READ ||
                        permission == Permission.WORKSPACE_READ ||

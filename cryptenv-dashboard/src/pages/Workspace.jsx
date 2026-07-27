@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { workspaceAPI, environmentAPI } from '../lib/api'
 import { toast } from 'sonner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -85,7 +86,7 @@ export function Workspace() {
 
   const handleCreateEnv = (e) => {
     e.preventDefault()
-    createEnvMutation.mutate({ name: newEnvName })
+    createEnvMutation.mutate({ name: newEnvName, workspaceId: selectedWorkspaceId })
   }
 
   const handleDeleteWorkspace = (id) => {
@@ -253,12 +254,16 @@ export function Workspace() {
           <form onSubmit={handleCreateEnv} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="envName">Environment Name</Label>
-              <Input
-                id="envName"
-                value={newEnvName}
-                onChange={(e) => setNewEnvName(e.target.value)}
-                required
-              />
+              <Select value={newEnvName} onValueChange={setNewEnvName} required>
+                <SelectTrigger id="envName">
+                  <SelectValue placeholder="Select environment type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DEVELOPMENT">Development</SelectItem>
+                  <SelectItem value="STAGING">Staging</SelectItem>
+                  <SelectItem value="PRODUCTION">Production</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={createEnvMutation.isPending}>
