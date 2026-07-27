@@ -4,6 +4,7 @@ import com.maheshshinde.CryptEnv.model.Secret;
 import com.maheshshinde.CryptEnv.model.SecretVersion;
 import com.maheshshinde.CryptEnv.repository.SecretRepository;
 import com.maheshshinde.CryptEnv.repository.SecretVersionRepository;
+import com.maheshshinde.CryptEnv.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
