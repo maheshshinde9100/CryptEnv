@@ -9,6 +9,7 @@ import { SecretEditor } from './pages/SecretEditor'
 import { Workspace } from './pages/Workspace'
 import { Settings } from './pages/Settings'
 import { Members } from './pages/Members'
+import { AuditLogs } from './pages/AuditLogs'
 import { authAPI } from './lib/api'
 
 function ProtectedRoute({ children }) {
@@ -37,8 +38,9 @@ function App() {
           <Route path="secrets/new" element={<SecretEditor />} />
           <Route path="secrets/:key/edit" element={<SecretEditor />} />
           <Route path="workspace" element={<Workspace />} />
-          <Route path="settings" element={<Settings />} />
           <Route path="members" element={<Members />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </ErrorBoundary>

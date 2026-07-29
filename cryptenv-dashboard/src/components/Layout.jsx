@@ -12,7 +12,8 @@ import {
   LogOut, 
   Menu,
   Moon,
-  Sun
+  Sun,
+  Activity
 } from 'lucide-react'
 
 export function Layout() {
@@ -58,6 +59,7 @@ export function Layout() {
     { path: '/secrets', icon: Key, label: 'Secrets' },
     { path: '/workspace', icon: LayoutDashboard, label: 'Workspace' },
     { path: '/members', icon: Users, label: 'Members' },
+    { path: '/audit-logs', icon: Activity, label: 'Audit Logs' },
     { path: '/settings', icon: Settings, label: 'Settings' },
   ]
 
