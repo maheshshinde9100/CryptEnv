@@ -25,7 +25,7 @@ public class EncryptionService {
     private static final int GCM_TAG_LENGTH = 128;
     private static final int GCM_IV_LENGTH = 12;
 
-    @Value("${encryption.master.key}")
+    @Value("${cryptenv.master-key}")
     private String masterKey;
 
     private SecretKeySpec getSecretKey() {
