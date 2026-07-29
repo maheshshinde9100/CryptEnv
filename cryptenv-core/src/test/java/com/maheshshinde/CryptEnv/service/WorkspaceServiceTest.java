@@ -9,15 +9,18 @@ import com.maheshshinde.CryptEnv.model.Workspace;
 import com.maheshshinde.CryptEnv.repository.UserRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import com.maheshshinde.CryptEnv.security.UserPrincipal;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 
@@ -83,6 +86,17 @@ class WorkspaceServiceTest {
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
+
+        // Set up Spring Security context with the mocked UserPrincipal
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(userPrincipal, null, Collections.emptyList());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Always clear the security context after each test to avoid state leakage
+        SecurityContextHolder.clearContext();
     }
 
     @Test

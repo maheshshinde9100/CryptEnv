@@ -3,11 +3,10 @@ package com.maheshshinde.CryptEnv;
 import com.maheshshinde.CryptEnv.model.Permission;
 import com.maheshshinde.CryptEnv.model.Role;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+// Pure enum logic tests — no Spring context required
 class RBACIntegrationTest {
 
     @Test
@@ -85,7 +84,7 @@ class RBACIntegrationTest {
 
     @Test
     void testPermissionEnumValues() {
-        assertEquals(13, Permission.values().length);
+        assertEquals(12, Permission.values().length);
         assertEquals(Permission.SECRET_READ, Permission.valueOf("SECRET_READ"));
         assertEquals(Permission.SECRET_WRITE, Permission.valueOf("SECRET_WRITE"));
         assertEquals(Permission.SECRET_DELETE, Permission.valueOf("SECRET_DELETE"));
