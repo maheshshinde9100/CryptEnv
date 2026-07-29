@@ -6,8 +6,8 @@ services:
     container_name: cryptenv-postgres
     environment:
       POSTGRES_DB: cryptenv
-      POSTGRES_USER: cryptenv
-      POSTGRES_PASSWORD: cryptenv_password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mypassword
     ports:
       - "5432:5432"
     volumes:
