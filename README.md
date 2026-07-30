@@ -1,282 +1,91 @@
 # CryptEnv
 
-A production-grade secrets management platform similar to Doppler, HashiCorp Vault, and AWS Secrets Manager.
+CryptEnv is an enterprise-grade platform for secure runtime secret injection and environment management. It securely delivers secrets to applications without the need for static `.env` files or hardcoded credentials.
 
-## Tech Stack
+## Overview
 
-- **Java 21** - Modern Java with latest features
-- **Spring Boot 3.2.0** - Enterprise application framework
-- **Spring Security** - Authentication and authorization
-- **PostgreSQL** - Relational database
-- **Flyway** - Database migration tool
-- **JWT** - Token-based authentication
-- **Docker Compose** - Container orchestration
-- **Swagger/OpenAPI** - API documentation
+CryptEnv consists of four core components:
 
-## Features
+1. **CryptEnv Core (Backend)**
+   - Built with Java, Spring Boot 3.2, and PostgreSQL.
+   - Provides secure REST APIs protected by JWT and API Keys.
+   - Handles AES-256 GCM encryption of all secrets at rest.
+   - Maintains an immutable audit trail of all access and administrative actions.
 
-- User registration and authentication with JWT
-- Workspace management
-- Environment management (Development, Staging, Production)
-- Member invitation to workspaces
-- Clean architecture with SOLID principles
-- Global exception handling
-- Input validation
-- API documentation with Swagger
-- Database migrations with Flyway
-- Docker support for easy deployment
+2. **CryptEnv Dashboard (Frontend)**
+   - A modern React application built with Vite and Tailwind CSS.
+   - Offers workspace and environment isolation.
+   - Provides administrative controls for secret rotation, access reviews, and security health analytics.
 
-## Project Structure
+3. **CryptEnv CLI**
+   - A Node.js command-line tool for developers and CI/CD pipelines.
+   - Injects secrets directly into running processes (e.g., `cryptenv run -- node app.js`).
+   - Supports listing, fetching, creating, and deleting secrets directly from the terminal.
 
-```
-CryptEnv/
-├── cryptenv-core/
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/maheshshinde/CryptEnv/
-│   │   │   │   ├── config/          # Configuration classes
-│   │   │   │   ├── controller/      # REST controllers
-│   │   │   │   ├── dto/             # Data Transfer Objects
-│   │   │   │   ├── exception/       # Custom exceptions
-│   │   │   │   ├── model/           # JPA entities
-│   │   │   │   ├── repository/      # Data access layer
-│   │   │   │   ├── security/        # Security configuration
-│   │   │   │   └── service/         # Business logic
-│   │   │   └── resources/
-│   │   │       ├── db/migration/    # Flyway migrations
-│   │   │       └── application.properties
-│   │   └── test/                   # Unit tests
-│   ├── Dockerfile
-│   └── pom.xml
-├── docker-compose.yml
-└── README.md
-```
+4. **CryptEnv SDK (Java)**
+   - A client library for Java applications (Spring Boot, Quarkus, etc.).
+   - Allows native, programmatic retrieval of secrets at runtime using API Keys.
 
-## Prerequisites
+## Architecture & Security
 
-- Java 21 or higher
-- Maven 3.9+
-- PostgreSQL 16+ (or use Docker)
-- Docker and Docker Compose (optional)
+- **Database Migrations:** Managed reliably using Flyway.
+- **Authentication:** Dual-mode authentication supporting short-lived JWTs for the web dashboard and long-lived API Keys for CLI/SDK access.
+- **Encryption:** All stored secrets are encrypted. Only authenticated requests can trigger decryption before delivery.
 
-## Setup Instructions
+## Local Setup
 
-### Option 1: Using Docker Compose (Recommended)
+### Prerequisites
+- Java 17
+- Node.js (v18+)
+- Maven
+- PostgreSQL
 
-1. Clone the repository:
+### 1. Database Configuration
+Ensure PostgreSQL is running on the default port (5432). The backend application will automatically create the schema on startup. Ensure your credentials are appropriately set in the backend configuration.
+
+### 2. Running the Backend
+Navigate to the `cryptenv-core` directory and start the Spring Boot application:
 ```bash
-git clone <repository-url>
-cd CryptEnv
+cd cryptenv-core
+mvn clean install
+mvn spring-boot:run
 ```
+The API server will listen on `http://localhost:8080`.
 
-2. Start the application with Docker Compose:
+### 3. Running the Dashboard
+Navigate to the `cryptenv-dashboard` directory and start the development server:
 ```bash
-docker-compose up -d
+cd cryptenv-dashboard
+npm install
+npm run dev
 ```
+Access the dashboard via `http://localhost:3000`.
 
-3. The application will be available at:
-   - API: http://localhost:8080
-   - Swagger UI: http://localhost:8080/swagger-ui.html
-   - PostgreSQL: localhost:5432
-
-### Option 2: Local Development Setup
-
-1. Clone the repository:
+### 4. Installing the CLI
+To test the CLI locally:
 ```bash
-git clone <repository-url>
-cd CryptEnv/cryptenv-core
+cd cryptenv-cli
+npm install
+npm link
 ```
+You can now use the `cryptenv` command globally on your system.
 
-2. Install PostgreSQL and create a database:
-```sql
-CREATE DATABASE cryptenv;
-CREATE USER cryptenv WITH PASSWORD 'cryptenv_password';
-GRANT ALL PRIVILEGES ON DATABASE cryptenv TO cryptenv;
-```
-
-3. Update `src/main/resources/application.properties` with your database credentials if needed.
-
-4. Build the project:
+### 5. Building the Java SDK
+To make the Java SDK available to your local Maven projects:
 ```bash
-./mvnw clean install
+cd cryptenv-sdk/java
+mvn clean install
 ```
 
-5. Run the application:
-```bash
-./mvnw spring-boot:run
-```
+## Usage Flow
 
-6. Access the application:
-   - API: http://localhost:8080
-   - Swagger UI: http://localhost:8080/swagger-ui.html
-
-## API Documentation
-
-Once the application is running, access the Swagger UI at:
-```
-http://localhost:8080/swagger-ui.html
-```
-
-### Authentication Endpoints
-
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Authenticate and get JWT token
-- `GET /api/auth/me` - Get current authenticated user
-
-### Workspace Endpoints
-
-- `POST /api/workspaces` - Create a new workspace (requires authentication)
-- `GET /api/workspaces` - Get all workspaces for current user
-- `GET /api/workspaces/{id}` - Get workspace by ID
-- `POST /api/workspaces/{id}/members?email={email}` - Invite member to workspace
-
-### Environment Endpoints
-
-- `POST /api/environments` - Create a new environment (requires authentication)
-- `GET /api/environments/{id}` - Get environment by ID
-- `GET /api/environments/workspace/{workspaceId}` - Get all environments for a workspace
-- `PATCH /api/environments/{id}/toggle` - Toggle environment active status
-
-## Example Usage
-
-### Register a User
-
-```bash
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "username": "testuser",
-    "password": "password123",
-    "firstName": "Test",
-    "lastName": "User"
-  }'
-```
-
-### Login
-
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password123"
-  }'
-```
-
-### Create a Workspace (with JWT token)
-
-```bash
-curl -X POST http://localhost:8080/api/workspaces \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your-jwt-token>" \
-  -d '{
-    "name": "my-workspace",
-    "description": "My first workspace"
-  }'
-```
-
-### Create an Environment
-
-```bash
-curl -X POST http://localhost:8080/api/environments \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your-jwt-token>" \
-  -d '{
-    "name": "DEVELOPMENT",
-    "workspaceId": 1
-  }'
-```
-
-## Configuration
-
-### Application Properties
-
-Key configuration options in `src/main/resources/application.properties`:
-
-```properties
-# Server
-server.port=8080
-
-# Database
-spring.datasource.url=jdbc:postgresql://localhost:5432/cryptenv
-spring.datasource.username=cryptenv
-spring.datasource.password=cryptenv_password
-
-# JWT
-jwt.secret=your-secret-key-change-this-in-production-at-least-256-bits
-jwt.expiration=86400000
-```
-
-**Important:** Change the JWT secret in production environments!
-
-## Running Tests
-
-Run the test suite:
-
-```bash
-./mvnw test
-```
-
-## Building for Production
-
-Build the JAR file:
-
-```bash
-./mvnw clean package -DskipTests
-```
-
-The JAR file will be created at: `cryptenv-core/target/CryptEnv-0.0.1-SNAPSHOT.jar`
-
-Run the JAR:
-
-```bash
-java -jar cryptenv-core/target/CryptEnv-0.0.1-SNAPSHOT.jar
-```
-
-## Security Considerations
-
-- Change the default JWT secret in production
-- Use environment variables for sensitive configuration
-- Enable HTTPS in production
-- Implement rate limiting
-- Add role-based access control (RBAC) for enhanced security
-- Regularly update dependencies
-
-## Database Migrations
-
-Flyway migrations are located in `src/main/resources/db/migration/`. They are automatically applied on application startup.
-
-Current migrations:
-- V1__Create_Users_Table.sql
-- V2__Create_Workspaces_Table.sql
-- V3__Create_Workspace_Members_Table.sql
-- V4__Create_Environments_Table.sql
-
-## Development
-
-### Adding New Features
-
-1. Create entity in `model/` package
-2. Create DTOs in `dto/` package
-3. Create repository in `repository/` package
-4. Create service in `service/` package
-5. Create controller in `controller/` package
-6. Add Flyway migration if needed
-7. Write unit tests
-
-### Code Style
-
-- Follow SOLID principles
-- Use clean architecture
-- Add proper validation
-- Write meaningful commit messages
-- Keep methods focused and small
+1. Register a new user account through the Dashboard.
+2. Create a Workspace and an Environment (e.g., Development).
+3. Navigate to Settings and generate an API Key.
+4. From your terminal, run `cryptenv login` to authenticate.
+5. Create secrets via the Dashboard or the CLI (`cryptenv secrets set <KEY> <VALUE>`).
+6. Run applications securely without `.env` files using `cryptenv run -- <your command>`.
 
 ## License
 
-MIT License
-
-## Support
-
-For issues and questions, please open an issue on the repository.
+This project is licensed under the MIT License.
