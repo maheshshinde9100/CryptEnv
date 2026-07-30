@@ -28,6 +28,10 @@ public class AuthenticationService {
     private final JwtTokenProvider tokenProvider;
     private final UserService userService;
 
+    public UserService getUserService() {
+        return userService;
+    }
+
     @Transactional
     public UserResponseDto register(UserRegistrationDto registrationDto) {
         return userService.registerUser(registrationDto);
@@ -57,7 +61,8 @@ public class AuthenticationService {
     @Transactional(readOnly = true)
     public UserResponseDto getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof UserPrincipal)) {
             throw new InvalidCredentialsException("User not authenticated");
         }
 

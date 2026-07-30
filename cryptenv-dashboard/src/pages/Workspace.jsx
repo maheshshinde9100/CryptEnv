@@ -56,7 +56,7 @@ export function Workspace() {
   })
 
   const createEnvMutation = useMutation({
-    mutationFn: (data) => environmentAPI.create(selectedWorkspaceId, data),
+    mutationFn: (data) => environmentAPI.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['environments', selectedWorkspaceId])
       toast.success('Environment created successfully')

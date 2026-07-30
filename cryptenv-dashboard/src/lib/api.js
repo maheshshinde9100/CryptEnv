@@ -31,6 +31,7 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout'),
   getCurrentUser: () => api.get('/auth/me'),
+  regenerateApiKey: () => api.post('/auth/api-key/regenerate'),
 }
 
 export const secretsAPI = {

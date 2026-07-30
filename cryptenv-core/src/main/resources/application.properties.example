@@ -6,8 +6,8 @@ spring.application.name=cryptenv-core
 
 # PostgreSQL Database Configuration
 spring.datasource.url=jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cryptenv}
-spring.datasource.username=${DB_USER:cryptenv}
-spring.datasource.password=${DB_PASS:cryptenv_password}
+spring.datasource.username=${DB_USER:postgres}
+spring.datasource.password=${DB_PASS:mypassword}
 spring.datasource.driver-class-name=org.postgresql.Driver
 
 # JPA / Hibernate Configuration

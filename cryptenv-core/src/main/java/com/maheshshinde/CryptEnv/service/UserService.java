@@ -34,6 +34,7 @@ public class UserService {
                 .password(passwordEncoder.encode(registrationDto.getPassword()))
                 .firstName(registrationDto.getFirstName())
                 .lastName(registrationDto.getLastName())
+                .apiKey("ce_live_" + java.util.UUID.randomUUID().toString().replace("-", ""))
                 .enabled(true)
                 .accountNonExpired(true)
                 .accountNonLocked(true)
@@ -42,6 +43,15 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
         return mapToResponseDto(savedUser);
+    }
+
+    @Transactional
+    public UserResponseDto generateNewApiKey(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        user.setApiKey("ce_live_" + java.util.UUID.randomUUID().toString().replace("-", ""));
+        User updated = userRepository.save(user);
+        return mapToResponseDto(updated);
     }
 
     @Transactional(readOnly = true)
@@ -59,6 +69,10 @@ public class UserService {
     }
 
     private UserResponseDto mapToResponseDto(User user) {
+        if (user.getApiKey() == null) {
+            user.setApiKey("ce_live_" + java.util.UUID.randomUUID().toString().replace("-", ""));
+            user = userRepository.save(user);
+        }
         return UserResponseDto.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -66,6 +80,7 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .enabled(user.getEnabled())
+                .apiKey(user.getApiKey())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

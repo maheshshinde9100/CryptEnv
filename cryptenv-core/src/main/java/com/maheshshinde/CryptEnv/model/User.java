@@ -78,4 +78,7 @@ public class User {
     @Column(nullable = false)
     @Builder.Default
     private Role role = Role.DEVELOPER;
+
+    @Column(name = "api_key", unique = true, length = 255)
+    private String apiKey;
 }
