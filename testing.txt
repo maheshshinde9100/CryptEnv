@@ -1,0 +1,114 @@
+# CryptEnv Project - Setup and Testing Guide
+
+This document contains all the necessary instructions to setup, run, and test the complete CryptEnv project across all its components.
+
+## Prerequisites
+- Node.js (v18 or higher)
+- Java 17
+- Maven
+- PostgreSQL (running on default port 5432)
+
+---
+
+## 1. Database Setup
+Ensure PostgreSQL is running. The backend will automatically create the database if it doesn't exist, and Flyway will handle all the schema migrations.
+Make sure your PostgreSQL credentials match `application.properties` (default: postgres/postgres).
+
+---
+
+## 2. Core Backend (Spring Boot)
+
+### How to Run
+```bash
+cd cryptenv-core
+mvn clean install
+mvn spring-boot:run
+```
+The backend API will start on `http://localhost:8080`.
+
+### Key Features
+- JWT Authentication (Login/Register)
+- REST APIs for Workspaces, Environments, Secrets, Audit Logs
+- API Key Authentication for CLI and SDK
+
+---
+
+## 3. Dashboard (React + Vite)
+
+### How to Run
+```bash
+cd cryptenv-dashboard
+npm install
+npm run dev
+```
+The dashboard will start on `http://localhost:3000`.
+
+### Key Features
+- Full UI for managing Workspaces, Environments, and Secrets
+- Complete Sidebar with Security Health, Analytics, and Notifications
+- Settings page for generating API Keys
+- Interactive Secret Rotation and Access Reviews
+
+---
+
+## 4. CLI Tool (Node.js)
+
+### How to Install
+```bash
+cd cryptenv-cli
+npm install
+npm link
+```
+Now you can use the `cryptenv` command globally.
+
+### Usage Examples
+```bash
+# Initialize and login
+cryptenv init
+cryptenv login
+
+# Manage secrets
+cryptenv secrets ls
+cryptenv secrets set DATABASE_URL postgresql://...
+cryptenv secrets get DATABASE_URL
+
+# Run a local application with secrets injected!
+cryptenv run -- node myapp.js
+```
+
+---
+
+## 5. SDK (Java)
+
+### How to Build
+```bash
+cd cryptenv-sdk/java
+mvn clean install
+```
+This builds the `cryptenv-sdk-1.0.0.jar` which can be included in any Java project.
+
+### Usage Example
+```java
+CryptEnvClient client = new CryptEnvClient.Builder()
+    .baseUrl("http://localhost:8080")
+    .apiKey("ce_live_your_api_key_here")
+    .build();
+
+String dbUrl = client.getSecret("DATABASE_URL");
+System.out.println("Got secret: " + dbUrl);
+```
+
+---
+
+## 6. Testing the Complete Flow
+1. Start the Backend and Dashboard.
+2. Open the Dashboard (`http://localhost:3000`) and **Register** a new account.
+3. Login and create a **Workspace** and **Environment** (e.g., Development).
+4. Go to Settings and generate a new **API Key**.
+5. Copy the API Key.
+6. Open your terminal and run `cryptenv login`, then enter your email and password.
+7. Set a secret: `cryptenv secrets set MY_SECRET "hello_world"`
+8. Verify it in the Dashboard.
+9. Try running a command with it: `cryptenv run -- node -e "console.log(process.env.MY_SECRET)"`
+
+You are now fully set up with CryptEnv!

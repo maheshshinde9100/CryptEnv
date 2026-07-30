@@ -19,6 +19,7 @@ public class UserResponseDto {
     private String firstName;
     private String lastName;
     private Boolean enabled;
+    private String apiKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -8,9 +8,11 @@ const API_BASE_URL = process.env.CRYPTENV_API_URL || 'http://localhost:8080/api'
 
 async function run(commandArgs) {
   try {
-    const token = await getAuthToken();
-    if (!token) {
-      console.error(chalk.red('Not authenticated. Please run: cryptenv login'));
+    let token = await getAuthToken();
+    const apiKey = process.env.CRYPTENV_API_KEY;
+
+    if (!token && !apiKey) {
+      console.error(chalk.red('Not authenticated. Please run: cryptenv login OR set CRYPTENV_API_KEY environment variable.'));
       process.exit(1);
     }
 
@@ -18,9 +20,8 @@ async function run(commandArgs) {
 
     try {
       // Fetch secrets from API
-      const response = await axios.get(`${API_BASE_URL}/secrets`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const headers = token ? { Authorization: `Bearer ${token}` } : { 'X-API-Key': apiKey };
+      const response = await axios.get(`${API_BASE_URL}/secrets`, { headers });
 
       spinner.succeed(chalk.green('Secrets fetched successfully'));
 

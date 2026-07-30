@@ -94,4 +94,12 @@ public class AuthController {
         UserResponseDto userResponse = authenticationService.getCurrentUser();
         return ResponseEntity.ok(userResponse);
     }
+
+    @PostMapping("/api-key/regenerate")
+    @Operation(summary = "Regenerate user API Key")
+    public ResponseEntity<UserResponseDto> regenerateApiKey() {
+        var currentUser = authenticationService.getCurrentUser();
+        UserResponseDto updated = authenticationService.getUserService().generateNewApiKey(currentUser.getId());
+        return ResponseEntity.ok(updated);
+    }
 }
