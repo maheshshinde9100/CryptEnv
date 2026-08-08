@@ -3,8 +3,7 @@ const axios = require('axios');
 const chalk = require('chalk');
 const ora = require('ora');
 const { getAuthToken } = require('./auth');
-
-const API_BASE_URL = process.env.CRYPTENV_API_URL || 'http://localhost:8080/api';
+const config = require('../utils/config');
 
 async function run(commandArgs) {
   try {
@@ -17,11 +16,12 @@ async function run(commandArgs) {
     }
 
     const spinner = ora('Fetching and decrypting secrets...').start();
+    const apiUrl = config.getApiUrl();
 
     try {
       // Fetch secrets from API
       const headers = token ? { Authorization: `Bearer ${token}` } : { 'X-API-Key': apiKey };
-      const response = await axios.get(`${API_BASE_URL}/secrets`, { headers });
+      const response = await axios.get(`${apiUrl}/secrets`, { headers });
 
       spinner.succeed(chalk.green('Secrets fetched successfully'));
 

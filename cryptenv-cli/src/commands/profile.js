@@ -3,8 +3,6 @@ const chalk = require('chalk');
 const ora = require('ora');
 const { getAuthToken, getUser } = require('./auth');
 
-const API_BASE_URL = process.env.CRYPTENV_API_URL || 'http://localhost:8080/api';
-
 async function profile() {
   try {
     const token = await getAuthToken();

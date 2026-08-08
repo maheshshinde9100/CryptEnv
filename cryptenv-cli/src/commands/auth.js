@@ -3,9 +3,9 @@ const keytar = require('keytar');
 const chalk = require('chalk');
 const ora = require('ora');
 const inquirer = require('inquirer');
+const config = require('../utils/config');
 
 const SERVICE_NAME = 'cryptenv-cli';
-const API_BASE_URL = process.env.CRYPTENV_API_URL || 'http://localhost:8080/api';
 
 async function login() {
   try {
@@ -26,9 +26,10 @@ async function login() {
     ]);
 
     const spinner = ora('Authenticating...').start();
+    const apiUrl = config.getApiUrl();
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+      const response = await axios.post(`${apiUrl}/auth/login`, {
         email: answers.email,
         password: answers.password
       });
