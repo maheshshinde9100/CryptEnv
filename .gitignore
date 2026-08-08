@@ -4,3 +4,4 @@ cryptenv-cli/.env
 .env*
 PROJECT.txt
 cryptenv-sdk/java/target/*
+cryptenv-cli/register-user.js
