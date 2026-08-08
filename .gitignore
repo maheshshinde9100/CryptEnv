@@ -2,3 +2,7 @@ cryptenv-core/src/main/resources/application.properties
 cryptenv-cli/node_modules
 cryptenv-cli/.env
 .env*
+PROJECT.txt
+cryptenv-sdk/java/target/*
+cryptenv-cli/register-user.js
+cryptenv-dashboard/testing-cli.js

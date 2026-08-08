@@ -35,6 +35,7 @@ public class UserService {
                 .firstName(registrationDto.getFirstName())
                 .lastName(registrationDto.getLastName())
                 .apiKey("ce_live_" + java.util.UUID.randomUUID().toString().replace("-", ""))
+                .role(com.maheshshinde.CryptEnv.model.Role.OWNER)
                 .enabled(true)
                 .accountNonExpired(true)
                 .accountNonLocked(true)

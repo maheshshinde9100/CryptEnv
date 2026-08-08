@@ -3,9 +3,9 @@ const keytar = require('keytar');
 const chalk = require('chalk');
 const ora = require('ora');
 const inquirer = require('inquirer');
+const config = require('../utils/config');
 
 const SERVICE_NAME = 'cryptenv-cli';
-const API_BASE_URL = process.env.CRYPTENV_API_URL || 'http://localhost:8080/api';
 
 async function login() {
   try {
@@ -26,16 +26,24 @@ async function login() {
     ]);
 
     const spinner = ora('Authenticating...').start();
+    const apiUrl = config.getApiUrl();
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+      const response = await axios.post(`${apiUrl}/auth/login`, {
         email: answers.email,
         password: answers.password
       });
 
-      const { token, user } = response.data;
+      // Server returns: { token, type, userId, username, email }
+      const data = response.data;
+      const token = data.token;
+      const user = {
+        id: data.userId,
+        username: data.username,
+        email: data.email
+      };
 
-      // Store token securely
+      // Store token and user info securely in OS keychain
       await keytar.setPassword(SERVICE_NAME, 'token', token);
       await keytar.setPassword(SERVICE_NAME, 'user', JSON.stringify(user));
 
@@ -54,6 +62,68 @@ async function login() {
   }
 }
 
+async function register() {
+  try {
+    const answers = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'email',
+        message: 'Email:',
+        validate: (input) => input.includes('@') || 'Please enter a valid email'
+      },
+      {
+        type: 'input',
+        name: 'username',
+        message: 'Username:',
+        validate: (input) => input.length >= 3 || 'Username must be at least 3 characters'
+      },
+      {
+        type: 'password',
+        name: 'password',
+        message: 'Password:',
+        mask: '*',
+        validate: (input) => input.length >= 8 || 'Password must be at least 8 characters'
+      },
+      {
+        type: 'input',
+        name: 'firstName',
+        message: 'First Name (optional):',
+      },
+      {
+        type: 'input',
+        name: 'lastName',
+        message: 'Last Name (optional):',
+      }
+    ]);
+
+    const spinner = ora('Registering...').start();
+    const apiUrl = config.getApiUrl();
+
+    try {
+      const response = await axios.post(`${apiUrl}/auth/register`, {
+        email: answers.email,
+        username: answers.username,
+        password: answers.password,
+        firstName: answers.firstName || undefined,
+        lastName: answers.lastName || undefined
+      });
+
+      spinner.succeed(chalk.green('Registration successful!'));
+      console.log(chalk.blue(`Account created for ${response.data.email}`));
+      console.log(chalk.yellow('Run: cryptenv login to authenticate'));
+    } catch (error) {
+      spinner.fail(chalk.red('Registration failed'));
+      if (error.response) {
+        console.error(chalk.red(error.response.data.message || 'Registration error'));
+      } else {
+        console.error(chalk.red('Connection error. Please check your API URL.'));
+      }
+    }
+  } catch (error) {
+    console.error(chalk.red('Error:', error.message));
+  }
+}
+
 async function logout() {
   try {
     const spinner = ora('Logging out...').start();
@@ -63,7 +133,7 @@ async function logout() {
 
     spinner.succeed(chalk.green('Logged out successfully'));
   } catch (error) {
-    spinner.fail(chalk.red('Logout failed'));
+    console.error(chalk.red('Logout failed'));
     console.error(chalk.red('Error:', error.message));
   }
 }
@@ -87,6 +157,7 @@ async function getUser() {
 
 module.exports = {
   login,
+  register,
   logout,
   getAuthToken,
   getUser

@@ -56,15 +56,19 @@ public class AuthController {
             );
             return ResponseEntity.ok(jwtResponse);
         } catch (Exception e) {
-            auditLogService.logEvent(
-                    authenticationService.getUserByEmail(loginDto.getEmail()),
-                    "FAILED_LOGIN",
-                    "USER",
-                    null,
-                    false,
-                    request,
-                    e.getMessage()
-            );
+            try {
+                auditLogService.logEvent(
+                        authenticationService.getUserByEmail(loginDto.getEmail()),
+                        "FAILED_LOGIN",
+                        "USER",
+                        null,
+                        false,
+                        request,
+                        e.getMessage()
+                );
+            } catch (Exception logError) {
+                // If user doesn't exist, skip audit log for failed login
+            }
             throw e;
         }
     }

@@ -1,10 +1,10 @@
 {
   "name": "cryptenv-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CryptEnv CLI - Runtime secret injection for development environments",
   "main": "index.js",
   "bin": {
-    "cryptenv": "./bin/cryptenv.js"
+    "cryptenv": "bin/cryptenv.js"
   },
   "scripts": {
     "start": "node bin/cryptenv.js",

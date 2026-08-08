@@ -10,7 +10,8 @@ const initCommand = require('../src/commands/init');
 program
   .name('cryptenv')
   .description('CryptEnv CLI - Runtime secret injection for development environments')
-  .version('1.0.0');
+  .version('1.0.1')
+  .enablePositionalOptions();
 
 // Init command
 program
@@ -19,6 +20,11 @@ program
   .action(initCommand);
 
 // Authentication commands
+program
+  .command('register')
+  .description('Register a new CryptEnv account')
+  .action(authCommands.register);
+
 program
   .command('login')
   .description('Authenticate with CryptEnv server')
@@ -57,6 +63,7 @@ secretsCmd
 // Run command
 program
   .command('run <command...>')
+  .passThroughOptions()
   .description('Run a command with injected secrets')
   .action(runCommand);
 

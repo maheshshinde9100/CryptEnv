@@ -2,8 +2,7 @@ const axios = require('axios');
 const chalk = require('chalk');
 const ora = require('ora');
 const { getAuthToken } = require('./auth');
-
-const API_BASE_URL = process.env.CRYPTENV_API_URL || 'http://localhost:8080/api';
+const config = require('../utils/config');
 
 async function list() {
   try {
@@ -14,9 +13,10 @@ async function list() {
     }
 
     const spinner = ora('Fetching secrets...').start();
+    const apiUrl = config.getApiUrl();
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/secrets`, {
+      const response = await axios.get(`${apiUrl}/secrets`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -53,9 +53,10 @@ async function get(key) {
     }
 
     const spinner = ora(`Fetching secret: ${key}...`).start();
+    const apiUrl = config.getApiUrl();
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/secrets/${key}`, {
+      const response = await axios.get(`${apiUrl}/secrets/${key}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -83,9 +84,10 @@ async function set(key, value) {
     }
 
     const spinner = ora(`Setting secret: ${key}...`).start();
+    const apiUrl = config.getApiUrl();
 
     try {
-      await axios.post(`${API_BASE_URL}/secrets`, {
+      await axios.post(`${apiUrl}/secrets`, {
         key,
         value
       }, {
@@ -116,9 +118,10 @@ async function deleteSecret(key) {
     }
 
     const spinner = ora(`Deleting secret: ${key}...`).start();
+    const apiUrl = config.getApiUrl();
 
     try {
-      await axios.delete(`${API_BASE_URL}/secrets/${key}`, {
+      await axios.delete(`${apiUrl}/secrets/${key}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

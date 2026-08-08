@@ -22,7 +22,7 @@ public class CryptEnvClient {
     private final ObjectMapper objectMapper;
 
     public CryptEnvClient(String apiKey) {
-        this("http://localhost:8080", apiKey, null);
+        this(System.getenv("CRYPTENV_API_URL") != null ? System.getenv("CRYPTENV_API_URL") : "http://localhost:8080", apiKey, null);
     }
 
     public CryptEnvClient(String baseUrl, String apiKey) {
