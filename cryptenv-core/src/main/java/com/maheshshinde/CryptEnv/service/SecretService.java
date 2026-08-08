@@ -1,9 +1,17 @@
 package com.maheshshinde.CryptEnv.service;
 
+import com.maheshshinde.CryptEnv.dto.SecretCreateDto;
+import com.maheshshinde.CryptEnv.dto.SecretResponseDto;
+import com.maheshshinde.CryptEnv.dto.SecretUpdateDto;
 import com.maheshshinde.CryptEnv.exception.ResourceAlreadyExistsException;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
+import com.maheshshinde.CryptEnv.model.Environment;
 import com.maheshshinde.CryptEnv.model.Secret;
+import com.maheshshinde.CryptEnv.model.User;
+import com.maheshshinde.CryptEnv.model.Workspace;
+import com.maheshshinde.CryptEnv.repository.EnvironmentRepository;
 import com.maheshshinde.CryptEnv.repository.SecretRepository;
+import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import com.maheshshinde.CryptEnv.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,92 +27,180 @@ import java.util.stream.Collectors;
 public class SecretService {
 
     private final SecretRepository secretRepository;
+    private final EnvironmentRepository environmentRepository;
+    private final WorkspaceRepository workspaceRepository;
     private final EncryptionService encryptionService;
+    private final SecurityService securityService;
+
+    private Environment getOrCreateDefaultEnvironment(User user) {
+        List<Workspace> workspaces = workspaceRepository.findByOwnerId(user.getId());
+        Workspace finalWorkspace;
+        if (workspaces.isEmpty()) {
+            Workspace newWorkspace = Workspace.builder()
+                    .name(user.getUsername() + "-workspace")
+                    .description("Default workspace for " + user.getUsername())
+                    .owner(user)
+                    .build();
+            finalWorkspace = workspaceRepository.save(newWorkspace);
+        } else {
+            finalWorkspace = workspaces.get(0);
+        }
+
+        return environmentRepository.findByWorkspaceIdAndName(finalWorkspace.getId(), Environment.EnvironmentType.DEVELOPMENT)
+                .orElseGet(() -> {
+                    Environment env = Environment.builder()
+                            .name(Environment.EnvironmentType.DEVELOPMENT)
+                            .workspace(finalWorkspace)
+                            .isActive(true)
+                            .build();
+                    return environmentRepository.save(env);
+                });
+    }
 
     @Transactional
-    public Secret createSecret(Secret secret) {
-        if (secretRepository.existsByKey(secret.getKey())) {
-            throw new ResourceAlreadyExistsException("Secret with key already exists: " + secret.getKey());
+    public SecretResponseDto createSecret(SecretCreateDto createDto) {
+        User currentUser = securityService.getCurrentUser();
+        Environment environment;
+
+        if (createDto.getEnvironmentId() == null) {
+            environment = getOrCreateDefaultEnvironment(currentUser);
+        } else {
+            environment = environmentRepository.findById(createDto.getEnvironmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + createDto.getEnvironmentId()));
         }
-        
+
+        // Check key uniqueness within this environment
+        if (secretRepository.existsByEnvironmentIdAndKey(environment.getId(), createDto.getKey())) {
+            throw new ResourceAlreadyExistsException("Secret with key '" + createDto.getKey() + "' already exists in this environment");
+        }
+
+        String valueToStore = createDto.getValue();
+        boolean shouldEncrypt = Boolean.TRUE.equals(createDto.getEncrypted());
+
         try {
-            if (Boolean.TRUE.equals(secret.getEncrypted())) {
-                secret.setValue(encryptionService.encrypt(secret.getValue()));
+            if (shouldEncrypt) {
+                valueToStore = encryptionService.encrypt(createDto.getValue());
             }
         } catch (Exception e) {
             log.error("Failed to encrypt secret", e);
             throw new RuntimeException("Failed to encrypt secret", e);
         }
-        
+
+        Secret secret = Secret.builder()
+                .key(createDto.getKey())
+                .value(valueToStore)
+                .environment(environment)
+                .description(createDto.getDescription())
+                .encrypted(shouldEncrypt)
+                .build();
+
         Secret savedSecret = secretRepository.save(secret);
-        return decryptSecret(savedSecret);
+        return mapToResponseDto(savedSecret, createDto.getValue());
     }
 
-    @Transactional(readOnly = true)
-    public List<Secret> getAllSecrets() {
-        return secretRepository.findAll().stream()
-                .map(this::decryptSecret)
+    @Transactional
+    public List<SecretResponseDto> getAllSecretsForCurrentUser() {
+        User currentUser = securityService.getCurrentUser();
+        
+        // Ensure default environment exists so user starts with a workspace & env
+        getOrCreateDefaultEnvironment(currentUser);
+
+        return secretRepository.findByEnvironmentWorkspaceOwnerId(currentUser.getId()).stream()
+                .map(this::decryptAndMap)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Secret getSecretByKey(String key) {
-        Secret secret = secretRepository.findByKey(key)
-                .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
-        return decryptSecret(secret);
+    public List<SecretResponseDto> getSecretsByEnvironment(Long environmentId) {
+        return secretRepository.findByEnvironmentId(environmentId).stream()
+                .map(this::decryptAndMap)
+                .collect(Collectors.toList());
     }
 
     @Transactional
-    public Secret updateSecret(String key, Secret secret) {
-        Secret existingSecret = secretRepository.findByKey(key)
+    public SecretResponseDto getSecretByKey(String key) {
+        User currentUser = securityService.getCurrentUser();
+        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerId(key, currentUser.getId());
+        if (secrets.isEmpty()) {
+            throw new ResourceNotFoundException("Secret not found with key: " + key);
+        }
+        return decryptAndMap(secrets.get(0));
+    }
+
+    @Transactional(readOnly = true)
+    public SecretResponseDto getSecretByEnvironmentAndKey(Long environmentId, String key) {
+        Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
+                .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key + " in environment: " + environmentId));
+        return decryptAndMap(secret);
+    }
+
+    @Transactional
+    public SecretResponseDto updateSecret(Long environmentId, String key, SecretUpdateDto updateDto) {
+        Secret existingSecret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
-                
+
+        String newValue = updateDto.getValue();
         try {
             if (Boolean.TRUE.equals(existingSecret.getEncrypted())) {
-                existingSecret.setValue(encryptionService.encrypt(secret.getValue()));
+                existingSecret.setValue(encryptionService.encrypt(newValue));
             } else {
-                existingSecret.setValue(secret.getValue());
+                existingSecret.setValue(newValue);
             }
         } catch (Exception e) {
             log.error("Failed to encrypt secret on update", e);
             throw new RuntimeException("Failed to encrypt secret on update", e);
         }
-        
-        existingSecret.setDescription(secret.getDescription());
+
+        if (updateDto.getDescription() != null) {
+            existingSecret.setDescription(updateDto.getDescription());
+        }
         existingSecret.setVersion(existingSecret.getVersion() + 1);
-        
+
         Secret savedSecret = secretRepository.save(existingSecret);
-        return decryptSecret(savedSecret);
+        return mapToResponseDto(savedSecret, newValue);
     }
 
     @Transactional
-    public void deleteSecret(String key) {
-        Secret secret = secretRepository.findByKey(key)
+    public void deleteSecret(Long environmentId, String key) {
+        Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
         secretRepository.delete(secret);
     }
-    
-    private Secret decryptSecret(Secret secret) {
-        if (Boolean.TRUE.equals(secret.getEncrypted()) && secret.getValue() != null) {
+
+    @Transactional
+    public void deleteSecretGlobal(String key) {
+        User currentUser = securityService.getCurrentUser();
+        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerId(key, currentUser.getId());
+        if (secrets.isEmpty()) {
+            throw new ResourceNotFoundException("Secret not found with key: " + key);
+        }
+        secretRepository.delete(secrets.get(0));
+    }
+
+    private SecretResponseDto decryptAndMap(Secret secret) {
+        String decryptedValue = secret.getValue();
+        if (Boolean.TRUE.equals(secret.getEncrypted()) && decryptedValue != null) {
             try {
-                // Create a copy so we don't modify the entity in the persistence context
-                Secret decrypted = new Secret();
-                decrypted.setId(secret.getId());
-                decrypted.setKey(secret.getKey());
-                decrypted.setValue(encryptionService.decrypt(secret.getValue()));
-                decrypted.setEnvironment(secret.getEnvironment());
-                decrypted.setDescription(secret.getDescription());
-                decrypted.setEncrypted(secret.getEncrypted());
-                decrypted.setVersioned(secret.getVersioned());
-                decrypted.setVersion(secret.getVersion());
-                decrypted.setCreatedAt(secret.getCreatedAt());
-                decrypted.setUpdatedAt(secret.getUpdatedAt());
-                return decrypted;
+                decryptedValue = encryptionService.decrypt(decryptedValue);
             } catch (Exception e) {
                 log.error("Failed to decrypt secret: {}", secret.getKey(), e);
-                // Return original if decryption fails (might be plain text from old versions)
+                decryptedValue = "[DECRYPTION_ERROR]";
             }
         }
-        return secret;
+        return mapToResponseDto(secret, decryptedValue);
+    }
+
+    private SecretResponseDto mapToResponseDto(Secret secret, String plainValue) {
+        return SecretResponseDto.builder()
+                .id(secret.getId())
+                .key(secret.getKey())
+                .value(plainValue)
+                .environmentId(secret.getEnvironment() != null ? secret.getEnvironment().getId() : null)
+                .description(secret.getDescription())
+                .encrypted(secret.getEncrypted())
+                .version(secret.getVersion())
+                .createdAt(secret.getCreatedAt())
+                .updatedAt(secret.getUpdatedAt())
+                .build();
     }
 }

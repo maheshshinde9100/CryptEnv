@@ -30,15 +30,16 @@ public class EncryptionService {
 
     private SecretKeySpec getSecretKey() {
         byte[] keyBytes = masterKey.getBytes(StandardCharsets.UTF_8);
+        byte[] finalKey = new byte[32];
         if (keyBytes.length < 32) {
-            byte[] paddedKey = new byte[32];
-            System.arraycopy(keyBytes, 0, paddedKey, 0, keyBytes.length);
-            keyBytes = paddedKey;
+            System.arraycopy(keyBytes, 0, finalKey, 0, keyBytes.length);
+        } else {
+            System.arraycopy(keyBytes, 0, finalKey, 0, 32);
         }
-        return new SecretKeySpec(keyBytes, ALGORITHM);
+        return new SecretKeySpec(finalKey, ALGORITHM);
     }
 
-    public String encrypt(String plaintext) throws EncryptionException {
+    public String encrypt(String plaintext) {
         try {
             SecretKeySpec secretKey = getSecretKey();
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
@@ -56,20 +57,20 @@ public class EncryptionService {
             return Base64.getEncoder().encodeToString(byteBuffer.array());
         } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
             log.error("Encryption algorithm not available", e);
-            throw new EncryptionException("Encryption algorithm not available", e);
+            throw new RuntimeException("Encryption algorithm not available", e);
         } catch (InvalidKeyException e) {
             log.error("Invalid encryption key", e);
-            throw new EncryptionException("Invalid encryption key", e);
+            throw new RuntimeException("Invalid encryption key", e);
         } catch (InvalidAlgorithmParameterException e) {
             log.error("Invalid algorithm parameter", e);
-            throw new EncryptionException("Invalid algorithm parameter", e);
+            throw new RuntimeException("Invalid algorithm parameter", e);
         } catch (IllegalBlockSizeException | BadPaddingException e) {
             log.error("Encryption failed", e);
-            throw new EncryptionException("Encryption failed", e);
+            throw new RuntimeException("Encryption failed", e);
         }
     }
 
-    public String decrypt(String ciphertext) throws EncryptionException {
+    public String decrypt(String ciphertext) {
         try {
             SecretKeySpec secretKey = getSecretKey();
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
@@ -90,16 +91,16 @@ public class EncryptionService {
             return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
             log.error("Decryption algorithm not available", e);
-            throw new EncryptionException("Decryption algorithm not available", e);
+            throw new RuntimeException("Decryption algorithm not available", e);
         } catch (InvalidKeyException e) {
             log.error("Invalid decryption key", e);
-            throw new EncryptionException("Invalid decryption key", e);
+            throw new RuntimeException("Invalid decryption key", e);
         } catch (InvalidAlgorithmParameterException e) {
             log.error("Invalid algorithm parameter", e);
-            throw new EncryptionException("Invalid algorithm parameter", e);
+            throw new RuntimeException("Invalid algorithm parameter", e);
         } catch (IllegalBlockSizeException | BadPaddingException e) {
             log.error("Decryption failed", e);
-            throw new EncryptionException("Decryption failed", e);
+            throw new RuntimeException("Decryption failed", e);
         }
     }
 
