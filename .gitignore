@@ -3,3 +3,4 @@ cryptenv-cli/node_modules
 cryptenv-cli/.env
 .env*
 PROJECT.txt
+cryptenv-sdk/java/target/*
