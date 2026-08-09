@@ -27,4 +27,10 @@ public interface SecretRepository extends JpaRepository<Secret, Long> {
 
     @Query("SELECT s FROM Secret s WHERE s.key = :key AND s.environment.workspace.owner.id = :ownerId")
     List<Secret> findByKeyAndEnvironmentWorkspaceOwnerId(@Param("key") String key, @Param("ownerId") Long ownerId);
+
+    List<Secret> findByAutoRotateTrueAndNextRotationAtLessThanEqual(java.time.LocalDateTime now);
+
+    List<Secret> findByIsActiveTrueAndExpiresAtLessThanEqual(java.time.LocalDateTime now);
+
+    List<Secret> findByIsDeletedTrueAndUpdatedAtLessThanEqual(java.time.LocalDateTime cutoffDate);
 }
