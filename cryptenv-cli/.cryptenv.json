@@ -1,5 +1,5 @@
 {
-  "apiUrl": "http://localhost:8080/api",
+  "apiUrl": "https://cryptenv-backend.onrender.com/api",
   "workspace": "cryptenv-cli",
   "createdAt": "2026-07-21T09:07:59.505Z"
 }
