@@ -21,8 +21,8 @@ function getApiUrl() {
     }
   }
 
-  // 3. Fallback to default local URL
-  return 'http://localhost:8080/api';
+  // 3. Fallback to default production URL
+  return 'https://cryptenv-backend.onrender.com/api';
 }
 
 module.exports = {

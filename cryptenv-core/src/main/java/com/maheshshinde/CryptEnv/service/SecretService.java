@@ -177,6 +177,116 @@ public class SecretService {
         secretRepository.delete(secrets.get(0));
     }
 
+    private Secret getSecretForLifecycle(String key, String email) {
+        // Find secret by key and owner's email (using securityService to ensure we only touch our own)
+        User currentUser = securityService.getCurrentUser();
+        if (!currentUser.getEmail().equals(email)) {
+             throw new RuntimeException("Unauthorized");
+        }
+        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerId(key, currentUser.getId());
+        if (secrets.isEmpty()) {
+            throw new ResourceNotFoundException("Secret not found with key: " + key);
+        }
+        return secrets.get(0);
+    }
+
+    @Transactional
+    public void softDeleteSecret(String key, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setIsDeleted(true);
+        secret.setUpdatedByEmail(email);
+        secretRepository.save(secret);
+    }
+
+    @Transactional
+    public void restoreSecret(String key, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setIsDeleted(false);
+        secret.setUpdatedByEmail(email);
+        secretRepository.save(secret);
+    }
+
+    @Transactional
+    public void activateSecret(String key, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setIsActive(true);
+        secret.setUpdatedByEmail(email);
+        secretRepository.save(secret);
+    }
+
+    @Transactional
+    public void deactivateSecret(String key, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setIsActive(false);
+        secret.setUpdatedByEmail(email);
+        secretRepository.save(secret);
+    }
+
+    @Transactional
+    public Secret setRotationInterval(String key, Integer intervalDays, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setRotationIntervalDays(intervalDays);
+        if (Boolean.TRUE.equals(secret.getAutoRotate()) && intervalDays != null) {
+             secret.setNextRotationAt(java.time.LocalDateTime.now().plusDays(intervalDays));
+        }
+        secret.setUpdatedByEmail(email);
+        return secretRepository.save(secret);
+    }
+
+    @Transactional
+    public Secret enableAutoRotation(String key, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        if (secret.getRotationIntervalDays() == null) {
+            throw new RuntimeException("Rotation interval must be set before enabling auto-rotation");
+        }
+        secret.setAutoRotate(true);
+        secret.setNextRotationAt(java.time.LocalDateTime.now().plusDays(secret.getRotationIntervalDays()));
+        secret.setUpdatedByEmail(email);
+        return secretRepository.save(secret);
+    }
+
+    @Transactional
+    public Secret disableAutoRotation(String key, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setAutoRotate(false);
+        secret.setNextRotationAt(null);
+        secret.setUpdatedByEmail(email);
+        return secretRepository.save(secret);
+    }
+
+    @Transactional
+    public Secret setExpiration(String key, java.time.LocalDateTime expiresAt, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setExpiresAt(expiresAt);
+        secret.setUpdatedByEmail(email);
+        return secretRepository.save(secret);
+    }
+
+    @Transactional
+    public void removeExpiration(String key, String email) {
+        Secret secret = getSecretForLifecycle(key, email);
+        secret.setExpiresAt(null);
+        secret.setUpdatedByEmail(email);
+        secretRepository.save(secret);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Secret> getSecretsNeedingRotation() {
+        return secretRepository.findByAutoRotateTrueAndNextRotationAtLessThanEqual(java.time.LocalDateTime.now());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Secret> getExpiredSecrets() {
+        return secretRepository.findByIsActiveTrueAndExpiresAtLessThanEqual(java.time.LocalDateTime.now());
+    }
+
+    @Transactional
+    public void cleanupSoftDeletedSecrets(int retentionDays) {
+        java.time.LocalDateTime cutoffDate = java.time.LocalDateTime.now().minusDays(retentionDays);
+        List<Secret> secretsToDelete = secretRepository.findByIsDeletedTrueAndUpdatedAtLessThanEqual(cutoffDate);
+        secretRepository.deleteAll(secretsToDelete);
+    }
+
     private SecretResponseDto decryptAndMap(Secret secret) {
         String decryptedValue = secret.getValue();
         if (Boolean.TRUE.equals(secret.getEncrypted()) && decryptedValue != null) {
