@@ -107,7 +107,7 @@ CryptEnv can be configured via:
 1. **Environment Variable**: Set `CRYPTENV_API_URL` to override the default API URL
 2. **Project Config**: `.cryptenv.json` file created by `cryptenv init`
 
-Default API URL: `http://localhost:8080/api`
+Default API URL: `https://cryptenv-backend.onrender.com/api`
 
 ## Security
 

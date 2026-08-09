@@ -3,6 +3,8 @@ const path = require('path');
 const chalk = require('chalk');
 const inquirer = require('inquirer');
 
+const DEFAULT_API_URL = 'https://cryptenv-backend.onrender.com/api';
+
 async function init() {
   try {
     const configPath = path.join(process.cwd(), '.cryptenv.json');
@@ -17,7 +19,7 @@ async function init() {
         type: 'input',
         name: 'apiUrl',
         message: 'CryptEnv API URL:',
-        default: 'http://localhost:8080/api',
+        default: DEFAULT_API_URL,
         validate: (input) => input.length > 0 || 'API URL is required'
       },
       {
@@ -39,6 +41,7 @@ async function init() {
 
     console.log(chalk.green('CryptEnv initialized successfully!'));
     console.log(chalk.blue(`Configuration saved to: ${configPath}`));
+    console.log(chalk.blue(`Using API: ${answers.apiUrl}`));
     console.log(chalk.yellow('Run: cryptenv login to authenticate'));
   } catch (error) {
     console.error(chalk.red('Error:', error.message));

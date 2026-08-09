@@ -53,6 +53,7 @@ class UserServiceTest {
                 .password("encodedPassword")
                 .firstName("Test")
                 .lastName("User")
+                .apiKey("test-dummy-api-key-NOT-A-REAL-ONE")
                 .enabled(true)
                 .accountNonExpired(true)
                 .accountNonLocked(true)

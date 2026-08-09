@@ -31,7 +31,7 @@ const integrations = [
     icon: Globe,
     category: 'API',
     status: 'available',
-    docs: 'http://localhost:8080/swagger-ui.html',
+    docs: 'https://cryptenv-backend.onrender.com/swagger-ui.html',
   },
   {
     id: 'github-actions',
