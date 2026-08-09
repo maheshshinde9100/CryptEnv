@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "secrets", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"environment_id", "key"})
+    @UniqueConstraint(columnNames = {"environment_id", "`key`"})
 })
 @Data
 @Builder
@@ -24,10 +24,10 @@ public class Secret {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "`key`", nullable = false, length = 255)
     private String key;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(name = "`value`", nullable = false, columnDefinition = "TEXT")
     private String value;
 
     @ManyToOne(fetch = FetchType.LAZY)
