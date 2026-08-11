@@ -1,0 +1,402 @@
+{
+  "name": "cryptenv",
+  "displayName": "CryptEnv - Secrets Manager",
+  "description": "Manage CryptEnv workspaces, environments, and secrets directly from Visual Studio Code. Sign in, browse, create, preview, copy, insert, edit, and delete secrets without leaving the editor.",
+  "version": "1.0.1",
+  "publisher": "maheshshinde9100",
+  "author": {
+    "name": "Mahesh Shinde",
+    "url": "https://github.com/maheshshinde9100"
+  },
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "secrets",
+    "env",
+    "environment",
+    "credentials",
+    "dotenv",
+    "security",
+    "secret management",
+    "key management",
+    "vault",
+    "cryptenv"
+  ],
+  "pricing": "Free",
+  "galleryBanner": {
+    "color": "#0b1020",
+    "theme": "dark"
+  },
+  "badges": [
+    {
+      "url": "https://img.shields.io/badge/License-MIT-8A2BE2",
+      "href": "https://github.com/maheshshinde9100/CryptEnv/blob/main/LICENSE",
+      "description": "License: MIT"
+    }
+  ],
+  "qna": "https://github.com/maheshshinde9100/CryptEnv/discussions",
+  "activationEvents": [
+    "onView:cryptenv-secrets-view",
+    "onCommand:cryptenv-vscode.login",
+    "onCommand:cryptenv-vscode.register",
+    "onCommand:cryptenv-vscode.setApiKey",
+    "onCommand:cryptenv-vscode.setBaseUrl"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cryptenv-vscode.login",
+        "title": "CryptEnv: Sign In",
+        "shortTitle": "Sign In",
+        "category": "CryptEnv",
+        "icon": "$(account)"
+      },
+      {
+        "command": "cryptenv-vscode.register",
+        "title": "CryptEnv: Create Account",
+        "shortTitle": "Create Account",
+        "category": "CryptEnv"
+      },
+      {
+        "command": "cryptenv-vscode.logout",
+        "title": "CryptEnv: Sign Out",
+        "shortTitle": "Sign Out",
+        "category": "CryptEnv",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "cryptenv-vscode.profile",
+        "title": "CryptEnv: View Profile",
+        "shortTitle": "View Profile",
+        "category": "CryptEnv",
+        "icon": "$(person)"
+      },
+      {
+        "command": "cryptenv-vscode.setApiKey",
+        "title": "CryptEnv: Set API Key",
+        "shortTitle": "Set API Key",
+        "category": "CryptEnv",
+        "icon": "$(key)"
+      },
+      {
+        "command": "cryptenv-vscode.setBaseUrl",
+        "title": "CryptEnv: Set Backend URL",
+        "shortTitle": "Set Backend URL",
+        "category": "CryptEnv",
+        "icon": "$(server)"
+      },
+      {
+        "command": "cryptenv-vscode.refreshSecrets",
+        "title": "CryptEnv: Refresh Explorer",
+        "shortTitle": "Refresh",
+        "category": "CryptEnv",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "cryptenv-vscode.createWorkspace",
+        "title": "CryptEnv: Create Workspace",
+        "shortTitle": "Create Workspace",
+        "category": "CryptEnv",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "cryptenv-vscode.deleteWorkspace",
+        "title": "CryptEnv: Delete Workspace",
+        "shortTitle": "Delete Workspace",
+        "category": "CryptEnv",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "cryptenv-vscode.createEnvironment",
+        "title": "CryptEnv: Create Environment",
+        "shortTitle": "Create Environment",
+        "category": "CryptEnv",
+        "icon": "$(add)"
+      },
+      {
+        "command": "cryptenv-vscode.addSecret",
+        "title": "CryptEnv: Add Secret",
+        "shortTitle": "Add Secret",
+        "category": "CryptEnv",
+        "icon": "$(add)"
+      },
+      {
+        "command": "cryptenv-vscode.editSecret",
+        "title": "CryptEnv: Edit Secret",
+        "shortTitle": "Edit Secret",
+        "category": "CryptEnv",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "cryptenv-vscode.deleteSecret",
+        "title": "CryptEnv: Delete Secret",
+        "shortTitle": "Delete Secret",
+        "category": "CryptEnv",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "cryptenv-vscode.previewSecret",
+        "title": "CryptEnv: Preview Secret",
+        "shortTitle": "Preview Secret",
+        "category": "CryptEnv",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "cryptenv-vscode.copyValue",
+        "title": "CryptEnv: Copy Secret Value",
+        "shortTitle": "Copy Value",
+        "category": "CryptEnv",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "cryptenv-vscode.insertKey",
+        "title": "CryptEnv: Insert Secret Key at Cursor",
+        "shortTitle": "Insert Secret Key",
+        "category": "CryptEnv",
+        "icon": "$(symbol-key)"
+      },
+      {
+        "command": "cryptenv-vscode.insertValue",
+        "title": "CryptEnv: Insert Secret Value at Cursor",
+        "shortTitle": "Insert Secret Value",
+        "category": "CryptEnv",
+        "icon": "$(pencil)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cryptenv-explorer",
+          "title": "CryptEnv",
+          "icon": "icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cryptenv-explorer": [
+        {
+          "id": "cryptenv-secrets-view",
+          "name": "Secrets Explorer",
+          "contextualTitle": "CryptEnv Secrets Explorer",
+          "visibility": "visible",
+          "type": "tree",
+          "icon": "$(lock)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "cryptenv-secrets-view",
+        "contents": "Sign in to CryptEnv to browse workspaces, environments, and secrets.\n[Sign In](command:cryptenv-vscode.login)\n[Use API Key](command:cryptenv-vscode.setApiKey)\n[Create Account](command:cryptenv-vscode.register)\n[Set Backend URL](command:cryptenv-vscode.setBaseUrl)\nLearn more at the [CryptEnv repository](https://github.com/maheshshinde9100/CryptEnv)."
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "cryptenv-vscode.login",
+          "group": "CryptEnv@1",
+          "when": "true"
+        },
+        {
+          "command": "cryptenv-vscode.register",
+          "group": "CryptEnv@2",
+          "when": "true"
+        },
+        {
+          "command": "cryptenv-vscode.setApiKey",
+          "group": "CryptEnv@3",
+          "when": "true"
+        },
+        {
+          "command": "cryptenv-vscode.setBaseUrl",
+          "group": "CryptEnv@4",
+          "when": "true"
+        },
+        {
+          "command": "cryptenv-vscode.logout",
+          "group": "CryptEnv@5"
+        },
+        {
+          "command": "cryptenv-vscode.profile",
+          "group": "CryptEnv@6"
+        },
+        {
+          "command": "cryptenv-vscode.refreshSecrets",
+          "group": "CryptEnv@7"
+        },
+        {
+          "command": "cryptenv-vscode.createWorkspace",
+          "group": "CryptEnv@10"
+        },
+        {
+          "command": "cryptenv-vscode.deleteWorkspace",
+          "group": "CryptEnv@11"
+        },
+        {
+          "command": "cryptenv-vscode.createEnvironment",
+          "group": "CryptEnv@12"
+        },
+        {
+          "command": "cryptenv-vscode.addSecret",
+          "group": "CryptEnv@13"
+        },
+        {
+          "command": "cryptenv-vscode.editSecret",
+          "group": "CryptEnv@14"
+        },
+        {
+          "command": "cryptenv-vscode.deleteSecret",
+          "group": "CryptEnv@15"
+        },
+        {
+          "command": "cryptenv-vscode.previewSecret",
+          "group": "CryptEnv@20"
+        },
+        {
+          "command": "cryptenv-vscode.copyValue",
+          "group": "CryptEnv@21"
+        },
+        {
+          "command": "cryptenv-vscode.insertKey",
+          "group": "CryptEnv@22"
+        },
+        {
+          "command": "cryptenv-vscode.insertValue",
+          "group": "CryptEnv@23"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "cryptenv-vscode.login",
+          "when": "view == cryptenv-secrets-view",
+          "group": "navigation@1"
+        },
+        {
+          "command": "cryptenv-vscode.logout",
+          "when": "view == cryptenv-secrets-view",
+          "group": "navigation@2"
+        },
+        {
+          "command": "cryptenv-vscode.profile",
+          "when": "view == cryptenv-secrets-view",
+          "group": "navigation@3"
+        },
+        {
+          "command": "cryptenv-vscode.refreshSecrets",
+          "when": "view == cryptenv-secrets-view",
+          "group": "navigation@9"
+        },
+        {
+          "command": "cryptenv-vscode.createWorkspace",
+          "when": "view == cryptenv-secrets-view",
+          "group": "manage@1"
+        },
+        {
+          "command": "cryptenv-vscode.addSecret",
+          "when": "view == cryptenv-secrets-view",
+          "group": "manage@2"
+        },
+        {
+          "command": "cryptenv-vscode.setApiKey",
+          "when": "view == cryptenv-secrets-view",
+          "group": "config@1"
+        },
+        {
+          "command": "cryptenv-vscode.setBaseUrl",
+          "when": "view == cryptenv-secrets-view",
+          "group": "config@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "cryptenv-vscode.deleteWorkspace",
+          "when": "view == cryptenv-secrets-view && viewItem == workspaceItem",
+          "group": "1_workspace@1"
+        },
+        {
+          "command": "cryptenv-vscode.createEnvironment",
+          "when": "view == cryptenv-secrets-view && viewItem == workspaceItem",
+          "group": "1_workspace@2"
+        },
+        {
+          "command": "cryptenv-vscode.addSecret",
+          "when": "view == cryptenv-secrets-view && viewItem == environmentItem",
+          "group": "1_env@1"
+        },
+        {
+          "command": "cryptenv-vscode.previewSecret",
+          "when": "view == cryptenv-secrets-view && viewItem == secretItem",
+          "group": "inline"
+        },
+        {
+          "command": "cryptenv-vscode.copyValue",
+          "when": "view == cryptenv-secrets-view && viewItem == secretItem",
+          "group": "inline"
+        },
+        {
+          "command": "cryptenv-vscode.insertKey",
+          "when": "view == cryptenv-secrets-view && viewItem == secretItem",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "cryptenv-vscode.insertValue",
+          "when": "view == cryptenv-secrets-view && viewItem == secretItem",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "cryptenv-vscode.editSecret",
+          "when": "view == cryptenv-secrets-view && viewItem == secretItem",
+          "group": "3_modify@1"
+        },
+        {
+          "command": "cryptenv-vscode.deleteSecret",
+          "when": "view == cryptenv-secrets-view && viewItem == secretItem",
+          "group": "3_modify@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "echo \"Linting not configured\"",
+    "pretest": "npm run lint",
+    "test": "echo \"Tests not configured\" && exit 0",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "dependencies": {
+    "axios": "^1.19.0"
+  },
+  "extensionPack": [],
+  "extensionDependencies": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maheshshinde9100/CryptEnv.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maheshshinde9100/CryptEnv/issues"
+  },
+  "homepage": "https://github.com/maheshshinde9100/CryptEnv/tree/main/cryptenv-vscode#readme",
+  "license": "MIT",
+  "contributors": [
+    {
+      "name": "Mahesh Shinde",
+      "url": "https://github.com/maheshshinde9100"
+    }
+  ],
+  "sponsor": {
+    "url": "https://github.com/maheshshinde9100"
+  }
+}
