@@ -23,7 +23,7 @@ const sections = [
     title: 'REST API',
     icon: Code2,
     content: [
-      { label: 'Base URL', code: 'http://localhost:8080/api', text: null },
+      { label: 'Base URL', code: 'https://cryptenv-backend.onrender.com/api', text: null },
       { label: 'Authenticate with JWT', code: 'curl -X POST /api/auth/login \\\n  -H "Content-Type: application/json" \\\n  -d \'{"email":"user@example.com","password":"pass"}\'', text: null },
       { label: 'Authenticate with API Key', code: 'curl /api/secrets \\\n  -H "X-API-Key: ce_live_yourkey..."', text: null },
       { label: 'List secrets', code: 'GET /api/secrets\nAuthorization: Bearer <token>', text: null },
@@ -46,7 +46,7 @@ const sections = [
       {
         label: 'Usage',
         code: `CryptEnvClient client = new CryptEnvClient.Builder()
-    .baseUrl("http://localhost:8080")
+    .baseUrl("https://cryptenv-backend.onrender.com")
     .apiKey("ce_live_yourkey...")
     .build();
 
@@ -74,7 +74,7 @@ export function Docs() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'REST API Docs', href: 'http://localhost:8080/swagger-ui.html', icon: Code2 },
+          { label: 'REST API Docs', href: 'https://cryptenv-backend.onrender.com/swagger-ui.html', icon: Code2 },
           { label: 'CLI Reference', href: '#cli', icon: Terminal },
           { label: 'Java SDK', href: '#sdk', icon: Code2 },
           { label: 'API Keys', href: '/settings', icon: Key },

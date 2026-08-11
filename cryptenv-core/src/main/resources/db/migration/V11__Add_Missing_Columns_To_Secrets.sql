@@ -1,0 +1,12 @@
+-- V11: Add missing columns to secrets table that are defined in Secret.java JPA entity
+
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS current_version INTEGER DEFAULT 1;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS auto_rotate BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS rotation_interval_days INTEGER;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS last_rotated_at TIMESTAMP;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS next_rotation_at TIMESTAMP;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS updated_by_email VARCHAR(255);
+ALTER TABLE secrets ADD COLUMN IF NOT EXISTS encrypted_value TEXT;
