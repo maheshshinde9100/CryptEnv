@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 const { program } = require('commander');
 const authCommands = require('../src/commands/auth');
@@ -9,8 +9,8 @@ const initCommand = require('../src/commands/init');
 
 program
   .name('cryptenv')
-  .description('CryptEnv CLI - Runtime secret injection for development environments')
-  .version('1.0.1')
+  .description('CryptEnv CLI - Runtime secret injection for development environments.')
+  .version('1.1.2')
   .enablePositionalOptions();
 
 // Init command
@@ -27,13 +27,18 @@ program
 
 program
   .command('login')
-  .description('Authenticate with CryptEnv server')
+  .description('Authenticate with CryptEnv')
   .action(authCommands.login);
 
 program
   .command('logout')
   .description('Logout from CryptEnv')
   .action(authCommands.logout);
+
+program
+  .command('profile')
+  .description('Show current user profile')
+  .action(profileCommand);
 
 // Secret management commands
 const secretsCmd = program
@@ -66,11 +71,5 @@ program
   .passThroughOptions()
   .description('Run a command with injected secrets')
   .action(runCommand);
-
-// Profile command
-program
-  .command('profile')
-  .description('Manage user profile')
-  .action(profileCommand);
 
 program.parse();

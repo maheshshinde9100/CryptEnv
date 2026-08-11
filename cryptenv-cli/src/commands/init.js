@@ -4,6 +4,7 @@ const chalk = require('chalk');
 const inquirer = require('inquirer');
 
 const DEFAULT_API_URL = 'https://cryptenv-backend.onrender.com/api';
+// const DEFAULT_API_URL = 'http://localhost:8080/api';
 
 async function init() {
   try {

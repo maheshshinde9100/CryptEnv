@@ -6,3 +6,9 @@ PROJECT.txt
 cryptenv-sdk/java/target/*
 cryptenv-cli/register-user.js
 cryptenv-dashboard/testing-cli.js
+node_modules/*
+testing-npm-package/*
+*.tgz
+cryptenv-dashboard/testing-cli.js
+cryptenv-vscode/node_modules/*
+*.vsix
