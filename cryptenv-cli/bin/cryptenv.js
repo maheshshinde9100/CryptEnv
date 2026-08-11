@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+﻿﻿#!/usr/bin/env node
 
 const { program } = require('commander');
 const authCommands = require('../src/commands/auth');
@@ -10,7 +10,7 @@ const initCommand = require('../src/commands/init');
 program
   .name('cryptenv')
   .description('CryptEnv CLI - Runtime secret injection for development environments.')
-  .version('1.1.2')
+  .version('1.1.3')
   .enablePositionalOptions();
 
 // Init command

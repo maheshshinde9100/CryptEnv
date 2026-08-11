@@ -12,3 +12,4 @@ testing-npm-package/*
 cryptenv-dashboard/testing-cli.js
 cryptenv-vscode/node_modules/*
 *.vsix
+*.class
