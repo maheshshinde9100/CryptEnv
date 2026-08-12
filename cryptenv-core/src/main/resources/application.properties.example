@@ -64,6 +64,13 @@ spring.flyway.out-of-order=false
 jwt.secret=${JWT_SECRET}
 jwt.expiration=${JWT_EXPIRATION:86400000}
 
+# -------- Rate limiting (per client IP) --------
+cryptenv.rate-limit.enabled=${RATE_LIMIT_ENABLED:true}
+cryptenv.rate-limit.capacity=${RATE_LIMIT_CAPACITY:120}
+cryptenv.rate-limit.refill-per-minute=${RATE_LIMIT_REFILL:120}
+cryptenv.rate-limit.auth-capacity=${RATE_LIMIT_AUTH_CAPACITY:30}
+cryptenv.rate-limit.auth-refill-per-minute=${RATE_LIMIT_AUTH_REFILL:30}
+
 # -------- Master encryption key (wraps workspace keys only) --------
 # Generate: openssl rand -base64 32
 cryptenv.master-key=${MASTER_ENCRYPTION_KEY}

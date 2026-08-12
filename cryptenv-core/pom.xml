@@ -87,6 +87,13 @@
 			<version>${springdoc.version}</version>
 		</dependency>
 
+		<!-- Rate limiting (in-memory token buckets per client IP) -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j-core</artifactId>
+			<version>8.10.1</version>
+		</dependency>
+
 		<!-- Lombok -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
