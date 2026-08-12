@@ -1,344 +1,126 @@
 ﻿# cryptenv-cli
 
-Version: 1.1.2
+**Version 1.3.0**
 
-CryptEnv CLI provides runtime secret injection for development teams. Store credentials securely in CryptEnv and inject them as environment variables at runtime. Secrets are encrypted at rest, fetched over HTTPS, and never written to your project directory.
+CryptEnv CLI injects encrypted secrets into local and CI processes at runtime. Secrets stay in CryptEnv (AES-GCM at rest) and are never written as project `.env` files.
 
----
-
-## Requirements
-
-- Node.js 16.0.0 or higher
-- On Linux, `libsecret` is required for the credential store. On Debian/Ubuntu run:
-  ```bash
-  sudo apt-get install libsecret-1-dev
-  ```
+Default API: `https://cryptenv-backend.onrender.com/api`
 
 ---
 
-## Installation
-
-Install globally to make the `cryptenv` command available:
+## Install
 
 ```bash
 npm install -g cryptenv-cli
-```
-
-Or use without installing:
-
-```bash
-npx cryptenv-cli <command>
-```
-
-Verify the installation:
-
-```bash
 cryptenv --version
+# cryptenv-cli 1.3.0
+```
+
+Or: `npx cryptenv-cli <command>`
+
+Linux credential store: `sudo apt-get install libsecret-1-dev`
+
+---
+
+## Quick start
+
+```bash
+cryptenv register          # or sign up in the dashboard
+cryptenv login             # JWT stored in OS keychain
+cd my-app && cryptenv init # writes .cryptenv.json (no secrets)
+cryptenv secrets set DATABASE_URL "postgresql://..."
+cryptenv run -- npm start  # secrets injected into the child process only
 ```
 
 ---
 
-## Quick Start
+## Commands
 
-### 1. Create an account
+### Account
+| Command | Description |
+|---------|-------------|
+| `cryptenv register` | Create account |
+| `cryptenv login` | Authenticate (JWT → OS credential store) |
+| `cryptenv logout` | Clear stored token |
+| `cryptenv profile` | Show profile / API key hints |
 
-Register once from the command line:
+### Project
+| Command | Description |
+|---------|-------------|
+| `cryptenv init` | Create `.cryptenv.json` (API URL + workspace name) |
 
-```bash
-cryptenv register
-```
+### Workspaces (1.2+)
+| Command | Description |
+|---------|-------------|
+| `cryptenv workspaces ls` | List workspaces (`key✓` / `no-key`) |
+| `cryptenv workspaces create <name> -k <key>` | Create workspace with encryption key (`-d` description) |
+| `cryptenv ws …` | Alias for `workspaces` |
 
-You will be prompted for your email, username, password, first name, and last name.
+### Secrets
+| Command | Description |
+|---------|-------------|
+| `cryptenv secrets ls` | List keys (values masked) |
+| `cryptenv secrets get <KEY>` | Print decrypted value |
+| `cryptenv secrets set <KEY> <VALUE>` | Create secret (server encrypts) |
+| `cryptenv secrets delete <KEY>` | Delete secret |
 
-You can also sign up through the web dashboard:
-https://cryptenv-backend.onrender.com
-
-### 2. Initialize your project
-
-Run this inside your project directory to create a `.cryptenv.json` file:
-
-```bash
-cd my-project
-cryptenv init
-```
-
-You will be asked for:
-- CryptEnv API URL (default: `https://cryptenv-backend.onrender.com/api`)
-- Workspace name (default: your project directory name)
-
-The `.cryptenv.json` file contains only the API URL and workspace name. It does not contain any secrets. It is safe to commit this file to version control so all team members use the same workspace setting.
-
-### 3. Log in
-
-```bash
-cryptenv login
-```
-
-Enter your email and password. The authentication token is stored in your operating system's secure credential store (macOS Keychain, Windows Credential Manager, or Linux Secret Service).
-
-### 4. Store a secret
-
-```bash
-cryptenv secrets set DATABASE_URL "postgresql://user:pass@db.example:5432/mydb"
-```
-
-### 5. Run your app with secrets injected
-
-```bash
-cryptenv run -- npm start
-```
-
-All secrets stored in CryptEnv for your workspace are injected directly into the child process as environment variables.
+### Runtime
+| Command | Description |
+|---------|-------------|
+| `cryptenv run -- <cmd> [args…]` | Run command with all secrets as env vars |
 
 ---
 
-## Available Commands
-
-### Account and Session
-
-#### `cryptenv register`
-
-Create a new CryptEnv account from the command line.
+## CI / non-interactive auth
 
 ```bash
-cryptenv register
+export CRYPTENV_API_KEY="ce_live_xxxxxxxx"
+export CRYPTENV_API_URL="https://cryptenv-backend.onrender.com/api"   # optional
+cryptenv run -- npm test
 ```
 
-#### `cryptenv login`
-
-Authenticate and store the session token in the OS credential store.
-
-```bash
-cryptenv login
-```
-
-#### `cryptenv logout`
-
-Remove the stored session token from the OS credential store.
-
-```bash
-cryptenv logout
-```
-
-#### `cryptenv profile`
-
-Display the current user's profile information.
-
-```bash
-cryptenv profile
-```
-
----
-
-### Project Setup
-
-#### `cryptenv init`
-
-Create a `.cryptenv.json` configuration file in the current directory.
-
-```bash
-cryptenv init
-```
-
----
-
-### Secret Management
-
-#### `cryptenv secrets set <KEY> <VALUE>`
-
-Create or update a secret.
-
-```bash
-cryptenv secrets set DATABASE_URL "postgresql://user:pass@db.example:5432/mydb"
-cryptenv secrets set REDIS_URL "redis://localhost:6379"
-cryptenv secrets set STRIPE_KEY "sk_test_<your_key_here>"
-```
-
-#### `cryptenv secrets ls`
-
-List all secrets stored for the current workspace. Values are masked.
-
-```bash
-cryptenv secrets ls
-```
-
-#### `cryptenv secrets get <KEY>`
-
-Display the plaintext value of a single secret.
-
-```bash
-cryptenv secrets get DATABASE_URL
-```
-
-#### `cryptenv secrets delete <KEY>`
-
-Remove a secret.
-
-```bash
-cryptenv secrets delete OLD_API_KEY
-```
-
----
-
-### Runtime Injection
-
-#### `cryptenv run -- <command> [args...]`
-
-Run any command with all CryptEnv secrets injected as environment variables.
-
-```bash
-# Node.js application
-cryptenv run -- node server.js
-
-# Express dev server
-cryptenv run -- npx nodemon app.ts
-
-# Python application
-cryptenv run -- python manage.py runserver
-
-# Java / Maven
-cryptenv run -- mvn spring-boot:run
-
-# Rails
-cryptenv run -- rails server
-
-# Shell command
-cryptenv run -- sh -c 'echo "DB is $DATABASE_URL"'
-```
-
-The double dash (`--`) separates `cryptenv` arguments from your command arguments.
-
-Existing environment variables are preserved. CryptEnv only adds missing entries. The child process exits with the same exit code as your command.
-
----
-
-## Authenticating in CI and Non-Interactive Environments
-
-For GitHub Actions, Docker containers, or any non-interactive context, use an API key instead of running `cryptenv login`.
-
-```bash
-export CRYPTENV_API_KEY="ce_live_xxxxxxxxxxxxxxxxxxxx"
-cryptenv run -- npm start
-```
-
-You can view and regenerate your API key in the web dashboard or with `cryptenv profile`.
+Generate/regenerate API keys in the CryptEnv dashboard → **Settings**.
 
 ---
 
 ## Configuration
 
-### Environment Variables
-
-| Variable | Purpose |
-|---|---|
-| `CRYPTENV_API_URL` | Override the backend base URL. Takes priority over `.cryptenv.json`. Default fallback: `https://cryptenv-backend.onrender.com/api` |
-| `CRYPTENV_API_KEY` | Authenticate using an API key instead of interactive login. Use for CI/CD and Docker. |
-
-### Project Configuration File (`.cryptenv.json`)
-
-Created by `cryptenv init` in the current working directory:
+| Source | Purpose |
+|--------|---------|
+| `CRYPTENV_API_URL` | Backend base URL (highest priority) |
+| `CRYPTENV_API_KEY` | API key auth (CI/CD) |
+| `.cryptenv.json` | `apiUrl` + `workspace` name (safe to commit) |
 
 ```json
 {
   "apiUrl": "https://cryptenv-backend.onrender.com/api",
   "workspace": "my-project",
-  "createdAt": "2025-11-14T06:02:55.768Z"
+  "createdAt": "2026-08-12T00:00:00.000Z"
 }
 ```
 
-- `apiUrl` - Backend URL for self-hosted CryptEnv instances
-- `workspace` - Workspace name scope for fetching secrets
-
 ---
 
-## Full Workflow Example
+## Security notes
 
-```bash
-# One-time setup (per machine)
-npm install -g cryptenv-cli
-cryptenv register
-cryptenv login
-
-# Per-project setup
-cd ~/code/my-team-api
-cryptenv init
-
-# Add secrets
-cryptenv secrets set DATABASE_URL "postgresql://dev:dev@localhost:5432/myapi_dev"
-cryptenv secrets set REDIS_URL "redis://localhost:6379"
-cryptenv secrets set STRIPE_KEY "sk_test_<your_key_here>"
-
-# Develop with secrets injected
-cryptenv run -- npm run dev
-
-# Another team member clones the project
-git clone git@github.com:team/my-team-api.git
-cd my-team-api
-cryptenv login
-cryptenv secrets ls
-cryptenv run -- npm test
-```
-
----
-
-## Command Summary
-
-```bash
-cryptenv --version              # Print version
-cryptenv --help                 # List all commands
-
-cryptenv init                   # Create .cryptenv.json in current directory
-cryptenv register               # Create a new CryptEnv account
-cryptenv login                  # Authenticate and store token
-cryptenv logout                 # Remove stored authentication token
-
-cryptenv secrets ls             # List all secrets (values masked)
-cryptenv secrets get <KEY>      # Print a single secret value
-cryptenv secrets set <KEY> <VALUE>   # Create or update a secret
-cryptenv secrets delete <KEY>   # Delete a secret
-
-cryptenv run -- <command>       # Run a command with secrets injected
-
-cryptenv profile                # Show current user profile
-```
+- Secrets are encrypted server-side with your **workspace encryption key**.
+- `cryptenv run` injects into the **child process only** — nothing written to disk.
+- Prefer API keys for pipelines; prefer login for local machines.
 
 ---
 
 ## Troubleshooting
 
-| Issue | Cause | Resolution |
-|---|---|---|
-| Connection error. Please check your API URL. | Backend service is starting up, network is offline, or the URL is wrong. | Wait 30 seconds if using the free tier, check your internet connection, and verify the URL by setting `CRYPTENV_API_URL`. |
-| Not authenticated. Please run: cryptenv login | No authentication token found. | Run `cryptenv login`, or export `CRYPTENV_API_KEY`. |
-| No secrets found | No secrets have been created in the workspace yet. | Use `cryptenv secrets set` to add secrets. |
-| Secret not found | Wrong workspace name or typo in the key name. | Verify the workspace name in `.cryptenv.json` matches the dashboard. Run `cryptenv secrets ls` to see existing keys. |
-| Linux: keytar build error on install | Missing libsecret headers. | Install `libsecret-1-dev` using your package manager, then reinstall. |
+| Issue | Fix |
+|-------|-----|
+| Connection error | Check `CRYPTENV_API_URL`; free-tier hosts may cold-start (~30s) |
+| Not authenticated | `cryptenv login` or set `CRYPTENV_API_KEY` |
+| No secrets / decrypt errors | Ensure workspace has an encryption key; recreate secrets if master key was rotated |
 
-Report issues at:
-https://github.com/maheshshinde9100/CryptEnv/issues
+Issues: https://github.com/maheshshinde9100/CryptEnv/issues
 
 ---
 
-## About
+## License & author
 
-CryptEnv lets teams store environment credentials in a central, encrypted service and inject them at runtime without writing `.env` files to disk.
-
-Hosted backend:
-https://cryptenv-backend.onrender.com
-
-Dashboard and workspace management:
-https://cryptenv-backend.onrender.com
-
-Source repository:
-https://github.com/maheshshinde9100/CryptEnv/tree/main/cryptenv-cli
-
-License: MIT
-
----
-
-## Developer
-
-Mahesh Shinde
-
-GitHub: https://github.com/maheshshinde9100
-Email: maheshshinde9100@gmail.com
+MIT · Mahesh Shinde · https://github.com/maheshshinde9100
