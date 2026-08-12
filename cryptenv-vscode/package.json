@@ -1,8 +1,8 @@
 {
   "name": "cryptenv",
   "displayName": "CryptEnv - Secrets Manager",
-  "description": "Manage CryptEnv workspaces, environments, and secrets directly from Visual Studio Code. Sign in, browse, create, preview, copy, insert, edit, and delete secrets without leaving the editor.",
-  "version": "1.0.1",
+  "description": "Manage CryptEnv workspaces, environments, and encrypted secrets from VS Code (JWT / API key). Workspace encryption keys, Secrets Explorer, cursor insert. Default: https://cryptenv-backend.onrender.com/api",
+  "version": "1.2.0",
   "publisher": "maheshshinde9100",
   "author": {
     "name": "Mahesh Shinde",
