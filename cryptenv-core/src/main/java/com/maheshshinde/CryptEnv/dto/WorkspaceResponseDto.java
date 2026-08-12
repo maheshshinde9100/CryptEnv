@@ -20,6 +20,7 @@ public class WorkspaceResponseDto {
     private Long ownerId;
     private String ownerUsername;
     private Set<String> memberUsernames;
+    private Boolean hasEncryptionKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

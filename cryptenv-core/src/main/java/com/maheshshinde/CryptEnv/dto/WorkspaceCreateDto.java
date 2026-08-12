@@ -19,4 +19,7 @@ public class WorkspaceCreateDto {
 
     @Size(max = 500, message = "Description must not exceed 500 characters")
     private String description;
+
+    @Size(min = 16, max = 512, message = "Workspace encryption key must be between 16 and 512 characters")
+    private String workspaceEncryptionKey;
 }

@@ -36,6 +36,9 @@ public class Workspace {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
+    @Column(name = "workspace_encryption_key", columnDefinition = "TEXT")
+    private String workspaceEncryptionKey;
+
     @ManyToMany
     @JoinTable(
         name = "workspace_members",

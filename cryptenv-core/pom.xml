@@ -87,6 +87,13 @@
 			<version>${springdoc.version}</version>
 		</dependency>
 
+		<!-- Rate limiting (in-memory token buckets per client IP) -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j-core</artifactId>
+			<version>8.10.1</version>
+		</dependency>
+
 		<!-- Lombok -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
@@ -121,5 +128,42 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>native</id>
+			<properties>
+				<skipTests>true</skipTests>
+				<packaging>jar</packaging>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-maven-plugin</artifactId>
+						<configuration>
+							<classifier/>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.graalvm.buildtools</groupId>
+						<artifactId>native-maven-plugin</artifactId>
+						<version>0.9.28</version>
+						<extensions>true</extensions>
+						<configuration>
+							<buildArgs>
+								<arg>--no-fallback</arg>
+								<arg>--enable-http</arg>
+								<arg>--enable-https</arg>
+								<arg>-H:+AddAllCharsets</arg>
+								<arg>-H:+ReportExceptionStackTraces</arg>
+								<arg>-J-Xmx8g</arg>
+							</buildArgs>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>

@@ -5,6 +5,7 @@ import com.maheshshinde.CryptEnv.dto.EnvironmentResponseDto;
 import com.maheshshinde.CryptEnv.exception.ResourceAlreadyExistsException;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
 import com.maheshshinde.CryptEnv.model.Environment;
+import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.model.Workspace;
 import com.maheshshinde.CryptEnv.repository.EnvironmentRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
@@ -21,11 +22,29 @@ public class EnvironmentService {
 
     private final EnvironmentRepository environmentRepository;
     private final WorkspaceRepository workspaceRepository;
+    private final SecurityService securityService;
+
+    private void validateWorkspaceAccess(Workspace workspace, User user) {
+        boolean isOwner = workspace.getOwner().getId().equals(user.getId());
+        boolean isMember = workspace.getMembers().stream()
+                .anyMatch(m -> m.getId().equals(user.getId()));
+        if (!isOwner && !isMember) {
+            throw new RuntimeException("Access denied: You do not have permission to this workspace");
+        }
+    }
+
+    private void validateWorkspaceOwner(Workspace workspace, User user) {
+        if (!workspace.getOwner().getId().equals(user.getId())) {
+            throw new RuntimeException("Access denied: Only workspace owner can create or modify environments");
+        }
+    }
 
     @Transactional
     public EnvironmentResponseDto createEnvironment(EnvironmentCreateDto createDto) {
+        User currentUser = securityService.getCurrentUser();
         Workspace workspace = workspaceRepository.findById(createDto.getWorkspaceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + createDto.getWorkspaceId()));
+        validateWorkspaceOwner(workspace, currentUser);
 
         if (environmentRepository.findByWorkspaceIdAndName(createDto.getWorkspaceId(), createDto.getName()).isPresent()) {
             throw new ResourceAlreadyExistsException(
@@ -45,15 +64,19 @@ public class EnvironmentService {
 
     @Transactional(readOnly = true)
     public EnvironmentResponseDto getEnvironmentById(Long id) {
+        User currentUser = securityService.getCurrentUser();
         Environment environment = environmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + id));
+        validateWorkspaceAccess(environment.getWorkspace(), currentUser);
         return mapToResponseDto(environment);
     }
 
     @Transactional(readOnly = true)
     public List<EnvironmentResponseDto> getEnvironmentsByWorkspace(Long workspaceId) {
+        User currentUser = securityService.getCurrentUser();
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
+        validateWorkspaceAccess(workspace, currentUser);
 
         return environmentRepository.findByWorkspaceId(workspaceId).stream()
                 .map(this::mapToResponseDto)
@@ -62,12 +85,23 @@ public class EnvironmentService {
 
     @Transactional
     public EnvironmentResponseDto toggleEnvironmentStatus(Long id) {
+        User currentUser = securityService.getCurrentUser();
         Environment environment = environmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + id));
+        validateWorkspaceOwner(environment.getWorkspace(), currentUser);
 
         environment.setIsActive(!environment.getIsActive());
         Environment savedEnvironment = environmentRepository.save(environment);
         return mapToResponseDto(savedEnvironment);
+    }
+
+    @Transactional
+    public void deleteEnvironment(Long id) {
+        User currentUser = securityService.getCurrentUser();
+        Environment environment = environmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + id));
+        validateWorkspaceOwner(environment.getWorkspace(), currentUser);
+        environmentRepository.delete(environment);
     }
 
     private EnvironmentResponseDto mapToResponseDto(Environment environment) {
