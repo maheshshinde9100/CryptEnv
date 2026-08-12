@@ -6,9 +6,9 @@
 
     <groupId>com.maheshshinde</groupId>
     <artifactId>cryptenv-sdk</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <name>CryptEnv Java SDK</name>
-    <description>Production Client SDK to fetch secrets from CryptEnv using API Key or JWT</description>
+    <description>Java client for CryptEnv Spring Boot API (API key or JWT). Default base URL: https://cryptenv-backend.onrender.com</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

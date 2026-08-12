@@ -1,23 +1,36 @@
 ﻿{
   "name": "cryptenv-cli",
-  "version": "1.1.3",
-  "description": "CryptEnv CLI - Runtime secret injection for development environments. Store credentials securely in CryptEnv and inject them at runtime — no .env files needed.",
+  "version": "1.3.0",
+  "description": "CryptEnv CLI — runtime secret injection for the CryptEnv Spring Boot API. Workspaces, secrets, and cryptenv run. Default: https://cryptenv-backend.onrender.com/api",
   "main": "index.js",
   "bin": {
     "cryptenv": "bin/cryptenv.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node bin/cryptenv.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "pack": "npm pack",
+    "test": "node -e \"require('./bin/cryptenv.js');\""
   },
   "keywords": [
     "cli",
+    "cryptenv",
     "secrets",
     "env",
     "environment",
-    "security"
+    "security",
+    "vault"
   ],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maheshshinde9100/CryptEnv.git"
+  },
+  "author": "Mahesh Shinde",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.6.0",

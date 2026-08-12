@@ -319,11 +319,24 @@ function activate(context) {
                 ignoreFocusOut: true,
                 validateInput: function(v) { return v && v.length > 1000 ? 'Too long' : null; }
             }) || '';
+            const workspaceEncryptionKey = await vscode.window.showInputBox({
+                title: 'Workspace Encryption Key',
+                prompt: 'AES workspace key (min 16 chars). Leave empty to set later in the dashboard.',
+                password: true,
+                ignoreFocusOut: true,
+                validateInput: function(v) {
+                    if (!v) return null;
+                    return v.length < 16 ? 'Key must be at least 16 characters' : null;
+                }
+            });
             const ws = await vscode.window.withProgress(
                 { location: vscode.ProgressLocation.Notification, title: 'Creating workspace...' },
-                function() { return api.createWorkspace(name, description); }
+                function() { return api.createWorkspace(name, description, workspaceEncryptionKey || undefined); }
             );
-            vscode.window.showInformationMessage('Workspace "' + ws.name + '" created.');
+            const keyNote = ws.hasEncryptionKey
+                ? ' Encryption key stored (wrapped).'
+                : ' Reminder: set an encryption key before creating secrets.';
+            vscode.window.showInformationMessage('Workspace "' + ws.name + '" created.' + keyNote);
             refresh();
         }).catch(handleError);
     }));

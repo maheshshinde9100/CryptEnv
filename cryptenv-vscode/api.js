@@ -174,11 +174,22 @@ class CryptEnvAPI {
         });
     }
 
-    async createWorkspace(name, description) {
+    async createWorkspace(name, description, workspaceEncryptionKey) {
+        const data = { name };
+        if (description) data.description = description;
+        if (workspaceEncryptionKey) data.workspaceEncryptionKey = workspaceEncryptionKey;
         return this._request({
             method: 'post',
             url: '/workspaces',
-            data: { name, description }
+            data
+        });
+    }
+
+    async setWorkspaceEncryptionKey(id, workspaceEncryptionKey) {
+        return this._request({
+            method: 'put',
+            url: '/workspaces/' + encodeURIComponent(id) + '/encryption-key',
+            data: { workspaceEncryptionKey }
         });
     }
 
