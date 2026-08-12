@@ -89,6 +89,47 @@ public class WorkspaceController {
         return ResponseEntity.ok(workspaceResponse);
     }
 
+    @PutMapping("/{id}/encryption-key")
+    @Operation(summary = "Update workspace encryption key (owner only)")
+    public ResponseEntity<WorkspaceResponseDto> updateWorkspaceEncryptionKey(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> body,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.WORKSPACE_WRITE);
+        String newKey = body.get("workspaceEncryptionKey");
+        WorkspaceResponseDto workspaceResponse = workspaceService.updateWorkspaceEncryptionKey(id, newKey);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "WORKSPACE_KEY_UPDATE",
+                "WORKSPACE",
+                id.toString(),
+                true,
+                request
+        );
+        return ResponseEntity.ok(workspaceResponse);
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Rename or update workspace (owner only)")
+    public ResponseEntity<WorkspaceResponseDto> renameWorkspace(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> body,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.WORKSPACE_WRITE);
+        String newName = body.get("name");
+        String newDescription = body.get("description");
+        WorkspaceResponseDto workspaceResponse = workspaceService.renameWorkspace(id, newName, newDescription);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "WORKSPACE_UPDATE",
+                "WORKSPACE",
+                id.toString(),
+                true,
+                request
+        );
+        return ResponseEntity.ok(workspaceResponse);
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a workspace")
     public ResponseEntity<Void> deleteWorkspace(@PathVariable Long id, HttpServletRequest request) {

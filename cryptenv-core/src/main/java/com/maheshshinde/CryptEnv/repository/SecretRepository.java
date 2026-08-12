@@ -28,6 +28,18 @@ public interface SecretRepository extends JpaRepository<Secret, Long> {
     @Query("SELECT s FROM Secret s WHERE s.key = :key AND s.environment.workspace.owner.id = :ownerId")
     List<Secret> findByKeyAndEnvironmentWorkspaceOwnerId(@Param("key") String key, @Param("ownerId") Long ownerId);
 
+    @Query("SELECT s FROM Secret s WHERE s.environment.workspace.owner.id = :userId OR EXISTS (SELECT m FROM s.environment.workspace.members m WHERE m.id = :userId)")
+    List<Secret> findByEnvironmentWorkspaceOwnerOrMemberId(@Param("userId") Long userId);
+
+    @Query("SELECT s FROM Secret s WHERE s.key = :key AND (s.environment.workspace.owner.id = :userId OR EXISTS (SELECT m FROM s.environment.workspace.members m WHERE m.id = :userId))")
+    List<Secret> findByKeyAndEnvironmentWorkspaceOwnerOrMemberId(@Param("key") String key, @Param("userId") Long userId);
+
+    @Query("SELECT s FROM Secret s WHERE s.environment.workspace.id = :workspaceId")
+    List<Secret> findByEnvironmentWorkspaceId(@Param("workspaceId") Long workspaceId);
+
+    @Query("SELECT s FROM Secret s WHERE s.environment.id IN :envIds")
+    List<Secret> findByEnvironmentIdIn(@Param("envIds") List<Long> envIds);
+
     List<Secret> findByAutoRotateTrueAndNextRotationAtLessThanEqual(java.time.LocalDateTime now);
 
     List<Secret> findByIsActiveTrueAndExpiresAtLessThanEqual(java.time.LocalDateTime now);

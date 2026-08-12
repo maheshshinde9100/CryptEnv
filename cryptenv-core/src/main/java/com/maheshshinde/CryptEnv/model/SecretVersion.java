@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
 @Table(name = "secret_versions", indexes = {
     @Index(name = "idx_secret_version_key", columnList = "secret_key"),
     @Index(name = "idx_secret_version_number", columnList = "secret_key,version_number"),
-    @Index(name = "idx_secret_version_active", columnList = "is_active")
+    @Index(name = "idx_secret_version_active", columnList = "is_active"),
+    @Index(name = "idx_secret_versions_secret_id", columnList = "secret_id"),
+    @Index(name = "idx_secret_versions_environment_id", columnList = "environment_id"),
+    @Index(name = "idx_secret_versions_workspace_id", columnList = "workspace_id")
 })
 @Data
 @Builder
@@ -27,6 +30,18 @@ public class SecretVersion {
 
     @Column(name = "secret_key", nullable = false, length = 255)
     private String secretKey;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "secret_id")
+    private Secret secret;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "environment_id")
+    private Environment environment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workspace_id")
+    private Workspace workspace;
 
     @Column(name = "version_number", nullable = false)
     private Integer versionNumber;

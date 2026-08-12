@@ -12,6 +12,7 @@ import com.maheshshinde.CryptEnv.model.Workspace;
 import com.maheshshinde.CryptEnv.repository.EnvironmentRepository;
 import com.maheshshinde.CryptEnv.repository.SecretRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
+import com.maheshshinde.CryptEnv.security.EncryptionException;
 import com.maheshshinde.CryptEnv.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,19 +32,44 @@ public class SecretService {
     private final WorkspaceRepository workspaceRepository;
     private final EncryptionService encryptionService;
     private final SecurityService securityService;
+    private final WorkspaceService workspaceService;
+
+    private void validateEnvironmentOwnership(Environment environment, User user) {
+        Long ownerId = environment.getWorkspace().getOwner().getId();
+        boolean isOwner = ownerId.equals(user.getId());
+        boolean isMember = environment.getWorkspace().getMembers().stream()
+                .anyMatch(m -> m.getId().equals(user.getId()));
+        if (!isOwner && !isMember) {
+            throw new RuntimeException("Access denied: You do not have permission to access secrets in this workspace");
+        }
+    }
+
+    private String getWorkspaceEncryptionKeyForEnv(Environment environment) {
+        Long workspaceId = environment.getWorkspace().getId();
+        return workspaceService.getDecryptedWorkspaceKey(workspaceId);
+    }
 
     private Environment getOrCreateDefaultEnvironment(User user) {
-        List<Workspace> workspaces = workspaceRepository.findByOwnerId(user.getId());
+        List<Workspace> ownedWorkspaces = workspaceRepository.findByOwnerId(user.getId());
+        List<Workspace> memberWorkspaces = workspaceRepository.findByMembersId(user.getId());
+        java.util.Set<Workspace> allWorkspaces = new java.util.LinkedHashSet<>();
+        allWorkspaces.addAll(ownedWorkspaces);
+        allWorkspaces.addAll(memberWorkspaces);
+
         Workspace finalWorkspace;
-        if (workspaces.isEmpty()) {
-            Workspace newWorkspace = Workspace.builder()
-                    .name(user.getUsername() + "-workspace")
-                    .description("Default workspace for " + user.getUsername())
-                    .owner(user)
-                    .build();
-            finalWorkspace = workspaceRepository.save(newWorkspace);
+        if (allWorkspaces.isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "No workspace found. Please create a workspace first at POST /api/workspaces with a workspaceEncryptionKey."
+            );
         } else {
-            finalWorkspace = workspaces.get(0);
+            finalWorkspace = allWorkspaces.iterator().next();
+        }
+
+        if (finalWorkspace.getWorkspaceEncryptionKey() == null) {
+            throw new ResourceNotFoundException(
+                    "Workspace '" + finalWorkspace.getName() + "' does not have an encryption key set. " +
+                    "Set it via PUT /api/workspaces/" + finalWorkspace.getId() + "/encryption-key"
+            );
         }
 
         return environmentRepository.findByWorkspaceIdAndName(finalWorkspace.getId(), Environment.EnvironmentType.DEVELOPMENT)
@@ -67,31 +93,38 @@ public class SecretService {
         } else {
             environment = environmentRepository.findById(createDto.getEnvironmentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + createDto.getEnvironmentId()));
+            validateEnvironmentOwnership(environment, currentUser);
         }
 
-        // Check key uniqueness within this environment
         if (secretRepository.existsByEnvironmentIdAndKey(environment.getId(), createDto.getKey())) {
             throw new ResourceAlreadyExistsException("Secret with key '" + createDto.getKey() + "' already exists in this environment");
         }
 
-        String valueToStore = createDto.getValue();
-        boolean shouldEncrypt = Boolean.TRUE.equals(createDto.getEncrypted());
-
+        String workspaceKey;
         try {
-            if (shouldEncrypt) {
-                valueToStore = encryptionService.encrypt(createDto.getValue());
-            }
+            workspaceKey = getWorkspaceEncryptionKeyForEnv(environment);
+        } catch (ResourceNotFoundException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to encrypt secret", e);
-            throw new RuntimeException("Failed to encrypt secret", e);
+            log.error("Failed to retrieve workspace encryption key", e);
+            throw new RuntimeException("Failed to retrieve workspace encryption key. Ensure it is set for this workspace.", e);
+        }
+
+        String encryptedValue;
+        try {
+            encryptedValue = encryptionService.encryptWithKey(createDto.getValue(), workspaceKey);
+        } catch (EncryptionException e) {
+            log.error("Failed to encrypt secret with workspace key", e);
+            throw new RuntimeException("Failed to encrypt secret. Check workspace encryption key.", e);
         }
 
         Secret secret = Secret.builder()
                 .key(createDto.getKey())
-                .value(valueToStore)
+                .value(encryptedValue)
                 .environment(environment)
                 .description(createDto.getDescription())
-                .encrypted(shouldEncrypt)
+                .encrypted(true)
+                .encryptedValue(encryptedValue)
                 .build();
 
         Secret savedSecret = secretRepository.save(secret);
@@ -101,17 +134,27 @@ public class SecretService {
     @Transactional
     public List<SecretResponseDto> getAllSecretsForCurrentUser() {
         User currentUser = securityService.getCurrentUser();
-        
-        // Ensure default environment exists so user starts with a workspace & env
-        getOrCreateDefaultEnvironment(currentUser);
 
-        return secretRepository.findByEnvironmentWorkspaceOwnerId(currentUser.getId()).stream()
-                .map(this::decryptAndMap)
+        return secretRepository.findByEnvironmentWorkspaceOwnerOrMemberId(currentUser.getId()).stream()
+                .map(secret -> {
+                    try {
+                        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+                    } catch (RuntimeException e) {
+                        return null;
+                    }
+                    return decryptAndMap(secret);
+                })
+                .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<SecretResponseDto> getSecretsByEnvironment(Long environmentId) {
+        User currentUser = securityService.getCurrentUser();
+        Environment environment = environmentRepository.findById(environmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + environmentId));
+        validateEnvironmentOwnership(environment, currentUser);
+
         return secretRepository.findByEnvironmentId(environmentId).stream()
                 .map(this::decryptAndMap)
                 .collect(Collectors.toList());
@@ -120,33 +163,44 @@ public class SecretService {
     @Transactional
     public SecretResponseDto getSecretByKey(String key) {
         User currentUser = securityService.getCurrentUser();
-        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerId(key, currentUser.getId());
+        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerOrMemberId(key, currentUser.getId());
         if (secrets.isEmpty()) {
             throw new ResourceNotFoundException("Secret not found with key: " + key);
         }
-        return decryptAndMap(secrets.get(0));
+        Secret secret = secrets.get(0);
+        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+        return decryptAndMap(secret);
     }
 
     @Transactional(readOnly = true)
     public SecretResponseDto getSecretByEnvironmentAndKey(Long environmentId, String key) {
+        User currentUser = securityService.getCurrentUser();
         Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key + " in environment: " + environmentId));
+        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
         return decryptAndMap(secret);
     }
 
     @Transactional
     public SecretResponseDto updateSecret(Long environmentId, String key, SecretUpdateDto updateDto) {
+        User currentUser = securityService.getCurrentUser();
         Secret existingSecret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
+        validateEnvironmentOwnership(existingSecret.getEnvironment(), currentUser);
+
+        String workspaceKey;
+        try {
+            workspaceKey = getWorkspaceEncryptionKeyForEnv(existingSecret.getEnvironment());
+        } catch (Exception e) {
+            log.error("Failed to retrieve workspace encryption key on update", e);
+            throw new RuntimeException("Failed to retrieve workspace encryption key", e);
+        }
 
         String newValue = updateDto.getValue();
         try {
-            if (Boolean.TRUE.equals(existingSecret.getEncrypted())) {
-                existingSecret.setValue(encryptionService.encrypt(newValue));
-            } else {
-                existingSecret.setValue(newValue);
-            }
-        } catch (Exception e) {
+            existingSecret.setValue(encryptionService.encryptWithKey(newValue, workspaceKey));
+            existingSecret.setEncryptedValue(existingSecret.getValue());
+        } catch (EncryptionException e) {
             log.error("Failed to encrypt secret on update", e);
             throw new RuntimeException("Failed to encrypt secret on update", e);
         }
@@ -155,6 +209,7 @@ public class SecretService {
             existingSecret.setDescription(updateDto.getDescription());
         }
         existingSecret.setVersion(existingSecret.getVersion() + 1);
+        existingSecret.setEncrypted(true);
 
         Secret savedSecret = secretRepository.save(existingSecret);
         return mapToResponseDto(savedSecret, newValue);
@@ -162,32 +217,37 @@ public class SecretService {
 
     @Transactional
     public void deleteSecret(Long environmentId, String key) {
+        User currentUser = securityService.getCurrentUser();
         Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
+        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
         secretRepository.delete(secret);
     }
 
     @Transactional
     public void deleteSecretGlobal(String key) {
         User currentUser = securityService.getCurrentUser();
-        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerId(key, currentUser.getId());
+        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerOrMemberId(key, currentUser.getId());
         if (secrets.isEmpty()) {
             throw new ResourceNotFoundException("Secret not found with key: " + key);
         }
-        secretRepository.delete(secrets.get(0));
+        Secret secret = secrets.get(0);
+        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+        secretRepository.delete(secret);
     }
 
     private Secret getSecretForLifecycle(String key, String email) {
-        // Find secret by key and owner's email (using securityService to ensure we only touch our own)
         User currentUser = securityService.getCurrentUser();
         if (!currentUser.getEmail().equals(email)) {
              throw new RuntimeException("Unauthorized");
         }
-        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerId(key, currentUser.getId());
+        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerOrMemberId(key, currentUser.getId());
         if (secrets.isEmpty()) {
             throw new ResourceNotFoundException("Secret not found with key: " + key);
         }
-        return secrets.get(0);
+        Secret secret = secrets.get(0);
+        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+        return secret;
     }
 
     @Transactional
@@ -288,16 +348,27 @@ public class SecretService {
     }
 
     private SecretResponseDto decryptAndMap(Secret secret) {
-        String decryptedValue = secret.getValue();
-        if (Boolean.TRUE.equals(secret.getEncrypted()) && decryptedValue != null) {
+        String plainValue;
+        String storedValue = secret.getEncryptedValue() != null ? secret.getEncryptedValue() : secret.getValue();
+
+        if (!Boolean.TRUE.equals(secret.getEncrypted())) {
+            plainValue = storedValue;
+        } else {
             try {
-                decryptedValue = encryptionService.decrypt(decryptedValue);
+                String workspaceKey = getWorkspaceEncryptionKeyForEnv(secret.getEnvironment());
+                plainValue = encryptionService.decryptWithKey(storedValue, workspaceKey);
+            } catch (ResourceNotFoundException e) {
+                log.warn("Workspace key missing for secret: {} - {}", secret.getKey(), e.getMessage());
+                plainValue = "[WORKSPACE_KEY_NOT_SET]";
+            } catch (EncryptionException e) {
+                log.error("Failed to decrypt secret: {} - wrong workspace key or corrupted", secret.getKey(), e);
+                plainValue = "[DECRYPTION_ERROR: Invalid workspace key]";
             } catch (Exception e) {
-                log.error("Failed to decrypt secret: {}", secret.getKey(), e);
-                decryptedValue = "[DECRYPTION_ERROR]";
+                log.error("Unexpected error decrypting secret: {}", secret.getKey(), e);
+                plainValue = "[DECRYPTION_ERROR]";
             }
         }
-        return mapToResponseDto(secret, decryptedValue);
+        return mapToResponseDto(secret, plainValue);
     }
 
     private SecretResponseDto mapToResponseDto(Secret secret, String plainValue) {
@@ -307,7 +378,7 @@ public class SecretService {
                 .value(plainValue)
                 .environmentId(secret.getEnvironment() != null ? secret.getEnvironment().getId() : null)
                 .description(secret.getDescription())
-                .encrypted(secret.getEncrypted())
+                .encrypted(true)
                 .version(secret.getVersion())
                 .createdAt(secret.getCreatedAt())
                 .updatedAt(secret.getUpdatedAt())

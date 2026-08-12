@@ -85,4 +85,20 @@ public class EnvironmentController {
         );
         return ResponseEntity.ok(environmentResponse);
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete an environment (owner only)")
+    public ResponseEntity<Void> deleteEnvironment(@PathVariable Long id, HttpServletRequest request) {
+        securityService.checkPermission(Permission.WORKSPACE_DELETE);
+        environmentService.deleteEnvironment(id);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "ENVIRONMENT_DELETE",
+                "ENVIRONMENT",
+                id.toString(),
+                true,
+                request
+        );
+        return ResponseEntity.noContent().build();
+    }
 }
