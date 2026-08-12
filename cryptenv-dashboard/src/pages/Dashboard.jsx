@@ -1,134 +1,126 @@
+import { Link, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { secretsAPI, workspaceAPI } from '../lib/api'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { Skeleton } from '../components/ui/skeleton'
-import { Key, FolderOpen, Users, Activity } from 'lucide-react'
+import { secretsAPI, workspaceAPI, healthAPI } from '../lib/api'
+import { FolderKanban, Lock, ShieldCheck, ArrowRight, Activity } from 'lucide-react'
 
 export function Dashboard() {
-  const { data: secrets, isLoading: secretsLoading } = useQuery({
-    queryKey: ['secrets'],
-    queryFn: () => secretsAPI.list().then((res) => res.data),
-  })
+  const { user, activeWorkspace } = useOutletContext() || {}
 
-  const { data: workspaces, isLoading: workspacesLoading } = useQuery({
+  const { data: workspaces = [] } = useQuery({
     queryKey: ['workspaces'],
-    queryFn: () => workspaceAPI.list().then((res) => res.data),
+    queryFn: () => workspaceAPI.list().then((r) => r.data),
   })
 
-  const stats = [
+  const { data: secrets = [] } = useQuery({
+    queryKey: ['secrets', 'overview'],
+    queryFn: () => secretsAPI.list().then((r) => r.data),
+  })
+
+  const { data: health } = useQuery({
+    queryKey: ['health'],
+    queryFn: () => healthAPI.check().then((r) => r.data),
+    retry: 0,
+  })
+
+  const encryptedCount = secrets.filter((s) => s.encrypted).length
+  const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'there'
+
+  const cards = [
     {
-      title: 'Total Secrets',
-      value: secrets?.length || 0,
-      icon: Key,
-      loading: secretsLoading,
+      label: 'Workspaces',
+      value: workspaces.length,
+      icon: FolderKanban,
+      to: '/workspace',
+      hint: 'Isolated project vaults',
     },
     {
-      title: 'Workspaces',
-      value: workspaces?.length || 0,
-      icon: FolderOpen,
-      loading: workspacesLoading,
+      label: 'Secrets',
+      value: secrets.length,
+      icon: Lock,
+      to: '/secrets',
+      hint: `${encryptedCount} encrypted at rest`,
+    },
+    {
+      label: 'Active workspace',
+      value: activeWorkspace?.name || '—',
+      icon: ShieldCheck,
+      to: '/workspace',
+      hint: activeWorkspace?.hasEncryptionKey ? 'Encryption key ready' : 'Set an encryption key',
+    },
+    {
+      label: 'API status',
+      value: health?.status || '…',
+      icon: Activity,
+      to: '/settings',
+      hint: health?.service || 'cryptenv-core',
     },
   ]
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your secrets and workspaces</p>
-      </div>
+    <div className="space-y-8 max-w-6xl">
+      <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/50 p-6 sm:p-8 surface-glow">
+        <div className="absolute inset-0 brand-gradient opacity-[0.08]" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
+          <img src="/logo.svg" alt="" className="h-16 w-16 drop-shadow-lg" />
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground mb-1">Welcome back</p>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              {displayName}
+            </h1>
+            <p className="mt-2 text-muted-foreground max-w-xl">
+              Manage encrypted environment secrets across workspaces — reveal values only when you need them.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/secrets/new"
+              className="inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium brand-gradient text-white shadow"
+            >
+              Add secret
+            </Link>
+            <Link
+              to="/workspace"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-accent"
+            >
+              Workspaces
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => {
+          const Icon = card.icon
           return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {stat.loading ? (
-                  <Skeleton className="h-8 w-20" />
-                ) : (
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                )}
-              </CardContent>
-            </Card>
+            <Link
+              key={card.label}
+              to={card.to}
+              className="glass-panel rounded-2xl p-5 hover:border-primary/40 transition-colors group"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="h-10 w-10 rounded-xl brand-gradient/20 bg-muted flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">{card.label}</p>
+              <p className="mt-1 text-2xl font-bold truncate">{card.value}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{card.hint}</p>
+            </Link>
           )
         })}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Secrets</CardTitle>
-            <CardDescription>Your recently added secrets</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {secretsLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : secrets && secrets.length > 0 ? (
-              <div className="space-y-2">
-                {secrets.slice(0, 5).map((secret) => (
-                  <div
-                    key={secret.key}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Key className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{secret.key}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {'•'.repeat(20)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No secrets yet</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Workspaces</CardTitle>
-            <CardDescription>Your active workspaces</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {workspacesLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : workspaces && workspaces.length > 0 ? (
-              <div className="space-y-2">
-                {workspaces.slice(0, 5).map((workspace) => (
-                  <div
-                    key={workspace.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{workspace.name}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {workspace.environments?.length || 0} envs
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No workspaces yet</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <section className="glass-panel rounded-2xl p-6">
+        <h2 className="font-semibold mb-3">Quick start</h2>
+        <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
+          <li>Create a workspace and save the generated encryption key offline.</li>
+          <li>Add a DEVELOPMENT (or STAGING / PRODUCTION) environment.</li>
+          <li>Create secrets — they are encrypted with your workspace key before storage.</li>
+          <li>Use the eye icon to reveal decrypted values in the Secrets view.</li>
+          <li>Generate an API key in Settings for CLI / VS Code / SDK access.</li>
+        </ol>
+      </section>
     </div>
   )
 }
