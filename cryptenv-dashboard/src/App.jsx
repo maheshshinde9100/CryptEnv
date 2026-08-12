@@ -10,15 +10,9 @@ import { Workspace } from './pages/Workspace'
 import { Settings } from './pages/Settings'
 import { Members } from './pages/Members'
 import { AuditLogs } from './pages/AuditLogs'
-import { SecurityHealth } from './pages/SecurityHealth'
-import { UsageAnalytics } from './pages/UsageAnalytics'
 import { SecretRotation } from './pages/SecretRotation'
-import { Integrations } from './pages/Integrations'
-import { Notifications } from './pages/Notifications'
-import { Docs } from './pages/Docs'
-import { Subscription } from './pages/Subscription'
-import { AccessRequests } from './pages/AccessRequests'
-import { AccessReviews } from './pages/AccessReviews'
+import { About } from './pages/About'
+import { DocsLayout } from './pages/docs/DocsLayout'
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -32,11 +26,21 @@ function App() {
   return (
     <ErrorBoundary>
       <Routes>
-        {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Protected routes */}
+        <Route
+          path="/docs"
+          element={
+            <ProtectedRoute>
+              <DocsLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="getting-started" replace />} />
+          <Route path=":section" element={null} />
+        </Route>
+
         <Route
           path="/"
           element={
@@ -45,33 +49,17 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Platform */}
           <Route index element={<Dashboard />} />
           <Route path="workspace" element={<Workspace />} />
           <Route path="members" element={<Members />} />
-
-          {/* Secrets */}
           <Route path="secrets" element={<Secrets />} />
           <Route path="secrets/new" element={<SecretEditor />} />
           <Route path="secrets/:key/edit" element={<SecretEditor />} />
-
-          {/* Security */}
-          <Route path="health" element={<SecurityHealth />} />
-          <Route path="analytics/usage" element={<UsageAnalytics />} />
           <Route path="rotation" element={<SecretRotation />} />
-          <Route path="access-requests" element={<AccessRequests />} />
-          <Route path="admin/reviews" element={<AccessReviews />} />
           <Route path="audit" element={<AuditLogs />} />
           <Route path="audit-logs" element={<AuditLogs />} />
-
-          {/* Configuration */}
-          <Route path="integrations" element={<Integrations />} />
-          <Route path="notifications" element={<Notifications />} />
           <Route path="settings" element={<Settings />} />
-          <Route path="subscription" element={<Subscription />} />
-          <Route path="docs" element={<Docs />} />
-
-          {/* Catch-all redirect */}
+          <Route path="about" element={<About />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
