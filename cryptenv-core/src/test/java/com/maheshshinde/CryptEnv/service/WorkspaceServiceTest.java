@@ -37,6 +37,12 @@ class WorkspaceServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private com.maheshshinde.CryptEnv.security.EncryptionService encryptionService;
+
+    @Mock
+    private SecurityService securityService;
+
     @InjectMocks
     private WorkspaceService workspaceService;
 
@@ -91,6 +97,7 @@ class WorkspaceServiceTest {
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(userPrincipal, null, Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        when(securityService.getCurrentUser()).thenReturn(user);
     }
 
     @AfterEach
