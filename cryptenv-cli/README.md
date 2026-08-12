@@ -1,4 +1,4 @@
-﻿# cryptenv-cli
+﻿﻿# cryptenv-cli
 
 **Version 1.3.0**
 
@@ -93,7 +93,7 @@ Generate/regenerate API keys in the CryptEnv dashboard → **Settings**.
 
 ```json
 {
-  "apiUrl": "https://cryptenv-backend.onrender.com/api",
+  "apiUrl": "<your CryptEnv API endpoint>",
   "workspace": "my-project",
   "createdAt": "2026-08-12T00:00:00.000Z"
 }
