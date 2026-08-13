@@ -47,7 +47,7 @@ ENTRYPOINT ["sh", "-c", "exec java \
   -Djwt.expiration=\"${JWT_EXPIRATION:-86400000}\" \
   -Dcryptenv.master-key=\"$MASTER_ENCRYPTION_KEY\" \
   -Dencryption.master.key=\"$MASTER_ENCRYPTION_KEY\" \
-  -Dcryptenv.cors.allowed-origins=\"${CORS_ALLOWED_ORIGINS:-http://localhost:3000}\" \
+  -Dcryptenv.cors.allowed-origins=\"${CORS_ALLOWED_ORIGINS:-https://cryptenv-dashboard.vercel.app}\" \
   -Dcryptenv.flyway.enabled=\"${CRYPTENV_FLYWAY_ENABLED:-true}\" \
   -Dspringdoc.swagger-ui.enabled=\"${SPRINGDOC_ENABLED:-false}\" \
   -Dserver.port=\"${PORT:-8080}\" \

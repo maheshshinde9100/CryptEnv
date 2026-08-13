@@ -3,6 +3,8 @@ cryptenv-cli/node_modules
 cryptenv-cli/.env
 .env*
 PROJECT.txt
+Project.md
+PROJECT.md
 cryptenv-sdk/java/target/*
 cryptenv-cli/register-user.js
 cryptenv-dashboard/testing-cli.js

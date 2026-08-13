@@ -1,10 +1,12 @@
 import axios from 'axios'
 
+const apiBase =
+  import.meta.env.VITE_API_URL?.replace(/\/$/, '') ||
+  ''
+
 const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: apiBase ? `${apiBase}/api` : '/api',
+  headers: { 'Content-Type': 'application/json' },
 })
 
 api.interceptors.request.use((config) => {
@@ -20,7 +22,11 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      localStorage.removeItem('user')
+      localStorage.removeItem('activeWorkspaceId')
+      if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register') && window.location.pathname !== '/') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
@@ -36,10 +42,37 @@ export const authAPI = {
 
 export const secretsAPI = {
   list: () => api.get('/secrets'),
-  get: (key) => api.get(`/secrets/${key}`),
+  listByEnvironment: (environmentId) => api.get(`/secrets/environment/${environmentId}`),
+  get: (key) => api.get(`/secrets/${encodeURIComponent(key)}`),
+  getByEnvironment: (environmentId, key) =>
+    api.get(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}`),
   create: (data) => api.post('/secrets', data),
-  update: (key, data) => api.put(`/secrets/${key}`, data),
-  delete: (key) => api.delete(`/secrets/${key}`),
+  update: (environmentId, key, data) =>
+    api.put(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}`, data),
+  delete: (key) => api.delete(`/secrets/${encodeURIComponent(key)}`),
+}
+
+export const secretLifecycleAPI = {
+  softDelete: (key) => api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/soft-delete`),
+  restore: (key) => api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/restore`),
+  activate: (key) => api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/activate`),
+  deactivate: (key) => api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/deactivate`),
+  setRotationInterval: (key, intervalDays) =>
+    api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/rotation-interval`, null, {
+      params: { intervalDays },
+    }),
+  enableAutoRotate: (key) =>
+    api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/auto-rotate/enable`),
+  disableAutoRotate: (key) =>
+    api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/auto-rotate/disable`),
+}
+
+export const secretVersionAPI = {
+  list: (key) => api.get(`/secrets/${encodeURIComponent(key)}/versions`),
+  get: (key, version) => api.get(`/secrets/${encodeURIComponent(key)}/versions/${version}`),
+  rollback: (key, version) =>
+    api.post(`/secrets/${encodeURIComponent(key)}/versions/rollback/${version}`),
+  active: (key) => api.get(`/secrets/${encodeURIComponent(key)}/versions/active`),
 }
 
 export const workspaceAPI = {
@@ -47,7 +80,11 @@ export const workspaceAPI = {
   get: (id) => api.get(`/workspaces/${id}`),
   create: (data) => api.post('/workspaces', data),
   update: (id, data) => api.put(`/workspaces/${id}`, data),
+  setEncryptionKey: (id, workspaceEncryptionKey) =>
+    api.put(`/workspaces/${id}/encryption-key`, { workspaceEncryptionKey }),
   delete: (id) => api.delete(`/workspaces/${id}`),
+  inviteMember: (id, email) =>
+    api.post(`/workspaces/${id}/members`, null, { params: { email } }),
 }
 
 export const environmentAPI = {
@@ -62,11 +99,17 @@ export const auditLogAPI = {
   list: (params) => api.get('/audit-logs', { params }),
   getUserLogs: (userId, params) => api.get(`/audit-logs/user/${userId}`, { params }),
   getActionLogs: (action, params) => api.get(`/audit-logs/action/${action}`, { params }),
-  getResourceLogs: (resourceType, resourceId, params) => api.get(`/audit-logs/resource/${resourceType}/${resourceId}`, { params }),
+  getResourceLogs: (resourceType, resourceId, params) =>
+    api.get(`/audit-logs/resource/${resourceType}/${resourceId}`, { params }),
 }
 
 export const memberAPI = {
-  invite: (workspaceId, email) => api.post(`/workspaces/${workspaceId}/members`, null, { params: { email } }),
+  invite: (workspaceId, email) =>
+    api.post(`/workspaces/${workspaceId}/members`, null, { params: { email } }),
+}
+
+export const healthAPI = {
+  check: () => api.get('/health'),
 }
 
 export default api

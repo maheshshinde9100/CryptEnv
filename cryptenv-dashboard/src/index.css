@@ -1,51 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 230 25% 98%;
+    --foreground: 230 30% 8%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 230 30% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 230 30% 8%;
+    --primary: 210 100% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 20% 94%;
+    --secondary-foreground: 230 30% 15%;
+    --muted: 230 18% 94%;
+    --muted-foreground: 230 10% 42%;
+    --accent: 258 70% 96%;
+    --accent-foreground: 258 55% 35%;
+    --destructive: 0 78% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 16% 88%;
+    --input: 230 16% 88%;
+    --ring: 210 100% 52%;
+    --radius: 0.75rem;
+    --brand-from: #38bdf8;
+    --brand-to: #7c3aed;
+    --glow: 210 100% 52% / 0.18;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 230 35% 5%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 230 30% 8%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 230 30% 8%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --primary: 199 95% 55%;
+    --primary-foreground: 230 40% 6%;
+    --secondary: 230 25% 14%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 230 22% 12%;
+    --muted-foreground: 220 15% 65%;
+    --accent: 258 40% 16%;
+    --accent-foreground: 258 90% 85%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 20% 16%;
+    --input: 230 20% 16%;
+    --ring: 199 95% 55%;
+    --glow: 199 95% 55% / 0.22;
   }
 }
 
@@ -53,7 +59,50 @@
   * {
     @apply border-border;
   }
+
+  html {
+    font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 10% -10%, hsl(var(--glow)), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 0%, hsl(258 70% 50% / 0.12), transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  code, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+}
+
+@layer utilities {
+  .brand-gradient {
+    background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+  }
+
+  .brand-text {
+    background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .glass-panel {
+    @apply border border-border/60 bg-card/80 backdrop-blur-xl shadow-sm;
+  }
+
+  .surface-glow {
+    box-shadow: 0 0 0 1px hsl(var(--border)), 0 20px 50px -28px hsl(var(--glow));
+  }
+
+  .landing-grid {
+    background-size: 48px 48px;
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.55) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.55) 1px, transparent 1px);
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, #000 35%, transparent 75%);
   }
 }

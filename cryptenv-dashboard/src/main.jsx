@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import App from './App.jsx'
 import './index.css'
+import { applyTheme, isDarkTheme } from './lib/theme'
+
+applyTheme(isDarkTheme())
 
 const queryClient = new QueryClient({
   defaultOptions: {
