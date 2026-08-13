@@ -24,7 +24,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('activeWorkspaceId')
-      if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+      if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register') && window.location.pathname !== '/') {
         window.location.href = '/login'
       }
     }

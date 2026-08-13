@@ -2,6 +2,7 @@ import { Link, useOutletContext } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { secretsAPI, workspaceAPI, healthAPI } from '../lib/api'
 import { FolderKanban, Lock, ShieldCheck, ArrowRight, Activity } from 'lucide-react'
+import { BrandLogo } from '../components/BrandLogo'
 
 export function Dashboard() {
   const { user, activeWorkspace } = useOutletContext() || {}
@@ -61,7 +62,7 @@ export function Dashboard() {
       <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/50 p-6 sm:p-8 surface-glow">
         <div className="absolute inset-0 brand-gradient opacity-[0.08]" />
         <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
-          <img src="/logo.svg" alt="" className="h-16 w-16 drop-shadow-lg" />
+          <BrandLogo size="xl" />
           <div className="flex-1">
             <p className="text-sm text-muted-foreground mb-1">Welcome back</p>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">

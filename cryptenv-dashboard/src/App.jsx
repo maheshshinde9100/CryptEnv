@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
+import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
@@ -26,6 +27,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
@@ -42,26 +44,26 @@ function App() {
         </Route>
 
         <Route
-          path="/"
           element={
             <ProtectedRoute>
               <Layout />
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="workspace" element={<Workspace />} />
-          <Route path="members" element={<Members />} />
-          <Route path="secrets" element={<Secrets />} />
-          <Route path="secrets/new" element={<SecretEditor />} />
-          <Route path="secrets/:key/edit" element={<SecretEditor />} />
-          <Route path="rotation" element={<SecretRotation />} />
-          <Route path="audit" element={<AuditLogs />} />
-          <Route path="audit-logs" element={<AuditLogs />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="about" element={<About />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/overview" element={<Dashboard />} />
+          <Route path="/workspace" element={<Workspace />} />
+          <Route path="/members" element={<Members />} />
+          <Route path="/secrets" element={<Secrets />} />
+          <Route path="/secrets/new" element={<SecretEditor />} />
+          <Route path="/secrets/:key/edit" element={<SecretEditor />} />
+          <Route path="/rotation" element={<SecretRotation />} />
+          <Route path="/audit" element={<AuditLogs />} />
+          <Route path="/audit-logs" element={<AuditLogs />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/about" element={<About />} />
         </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ErrorBoundary>
   )

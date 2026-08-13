@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { authAPI, workspaceAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { Button } from './ui/button'
+import { BrandWordmark } from './BrandLogo'
+import { applyTheme, isDarkTheme } from '../lib/theme'
 import {
   LayoutDashboard,
   FolderKanban,
@@ -27,7 +29,7 @@ const navSections = [
   {
     title: 'Platform',
     items: [
-      { path: '/', icon: LayoutDashboard, label: 'Overview' },
+      { path: '/overview', icon: LayoutDashboard, label: 'Overview' },
       { path: '/workspace', icon: FolderKanban, label: 'Workspaces' },
       { path: '/secrets', icon: Lock, label: 'Secrets' },
       { path: '/members', icon: Users, label: 'Members' },
@@ -76,10 +78,9 @@ export function Layout() {
   )
 
   useEffect(() => {
-    const stored = localStorage.getItem('darkMode')
-    const dark = stored === null ? true : stored === 'true'
+    const dark = isDarkTheme()
     setIsDark(dark)
-    document.documentElement.classList.toggle('dark', dark)
+    applyTheme(dark)
   }, [])
 
   useEffect(() => {
@@ -103,8 +104,7 @@ export function Layout() {
   const toggleDarkMode = () => {
     const next = !isDark
     setIsDark(next)
-    localStorage.setItem('darkMode', String(next))
-    document.documentElement.classList.toggle('dark', next)
+    applyTheme(next)
   }
 
   const selectWorkspace = (id) => {
@@ -116,7 +116,7 @@ export function Layout() {
   }
 
   const isActive = (path) => {
-    if (path === '/') return location.pathname === '/'
+    if (path === '/overview') return location.pathname === '/overview'
     if (path.startsWith('/docs')) return location.pathname.startsWith('/docs')
     return location.pathname.startsWith(path)
   }
@@ -132,9 +132,8 @@ export function Layout() {
             <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen((v) => !v)}>
               {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <Link to="/" className="flex items-center gap-2.5 group">
-              <img src="/logo.svg" alt="CryptEnv" className="h-8 w-8 drop-shadow" />
-              <span className="text-xl font-bold tracking-tight brand-text">CryptEnv</span>
+            <Link to="/overview" className="flex items-center">
+              <BrandWordmark size="sm" textClassName="text-xl" />
             </Link>
           </div>
 

@@ -401,7 +401,7 @@ export function TutorialsDoc() {
         <Link to="/docs/sdks" className="text-muted-foreground hover:text-primary">
           ← SDKs
         </Link>
-        <Link to="/" className="text-primary font-medium hover:underline">
+        <Link to="/overview" className="text-primary font-medium hover:underline">
           Back to Dashboard →
         </Link>
       </div>

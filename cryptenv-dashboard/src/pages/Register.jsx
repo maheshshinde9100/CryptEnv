@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Button } from '../components/ui/button'
+import { BrandLogo } from '../components/BrandLogo'
 
 export function Register() {
   const navigate = useNavigate()
@@ -56,7 +57,9 @@ export function Register() {
       <div className="pointer-events-none absolute inset-0 brand-gradient opacity-[0.1]" />
       <div className="relative w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center gap-3">
-          <img src="/logo.svg" alt="CryptEnv" className="h-14 w-14" />
+          <Link to="/">
+            <BrandLogo size="lg" />
+          </Link>
           <h1 className="text-3xl font-bold brand-text">Join CryptEnv</h1>
           <p className="text-sm text-muted-foreground">Create a vault for encrypted workspace secrets</p>
         </div>

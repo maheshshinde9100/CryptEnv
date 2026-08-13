@@ -66,7 +66,7 @@ export function DocsLayout() {
   const navBody = (
     <>
       <div className="p-4 border-b border-border/60 space-y-3">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
+        <Link to="/overview" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
           <ArrowLeft className="h-4 w-4" />
           Back to Dashboard
         </Link>

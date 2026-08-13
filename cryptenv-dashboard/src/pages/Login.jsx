@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Button } from '../components/ui/button'
 import { Eye, EyeOff } from 'lucide-react'
+import { BrandLogo } from '../components/BrandLogo'
 
 export function Login() {
   const navigate = useNavigate()
@@ -26,7 +27,7 @@ export function Login() {
         )
       }
       toast.success('Welcome back')
-      navigate('/')
+      navigate('/overview')
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Invalid email or password')
@@ -41,7 +42,9 @@ export function Login() {
 
       <div className="relative w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center gap-3">
-          <img src="/logo.svg" alt="CryptEnv" className="h-16 w-16 drop-shadow-lg" />
+          <Link to="/">
+            <BrandLogo size="xl" />
+          </Link>
           <h1 className="text-4xl font-bold tracking-tight brand-text">CryptEnv</h1>
           <p className="text-sm text-muted-foreground max-w-sm">
             Encrypted environment secrets for modern teams — vaulted, isolated, and ready for runtime.
