@@ -1,6 +1,6 @@
 {
-  "name": "@cryptenv/sdk",
-  "version": "1.2.0",
+  "name": "cryptenv-sdk",
+  "version": "1.0.0",
   "description": "CryptEnv runtime secrets SDK for Node.js — authenticate, fetch encrypted secrets, decrypt locally with CRYPTENV_MASTER_KEY, and consume via get() or load().",
   "main": "src/index.js",
   "types": "src/index.d.ts",
@@ -9,6 +9,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "node test/crypto.test.js && node test/config.test.js && node test/sdk.test.js",
     "example": "node test/example.js",
