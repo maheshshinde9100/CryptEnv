@@ -1,15 +1,42 @@
 require('dotenv').config();
 const axios = require('axios');
 const { encryptWithKey, decryptWithKey } = require('./crypto');
+const { resolveConfig, resolveMasterKey } = require('./config');
+
+function sanitizeErrorMessage(err) {
+  let msg = (err && err.message) || 'Unknown error';
+  if (err && err.response && err.response.data) {
+    const data = err.response.data;
+    msg = data.message || data.error || err.response.statusText || msg;
+  }
+  return String(msg)
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/ce_live_[a-f0-9]+/gi, 'ce_live_[redacted]');
+}
+
+function mapWorkspaceFromLogin(dto) {
+  return {
+    id: dto.id,
+    name: dto.name,
+    description: dto.description || null,
+    hasEncryptionKey: Boolean(dto.hasEncryptionKey),
+    environments: dto.environments || []
+  };
+}
+
+function mapWorkspaceFromApi(dto) {
+  return {
+    id: dto.id,
+    name: dto.name,
+    description: dto.description || null,
+    hasEncryptionKey: Boolean(dto.hasEncryptionKey),
+    environments: []
+  };
+}
 
 class CryptEnv {
   constructor(options = {}) {
-    this.email = options.email || process.env.CRYPTENV_EMAIL;
-    this.password = options.password || process.env.CRYPTENV_PASSWORD;
-    this.workspaceId = options.workspaceId || process.env.CRYPTENV_WORKSPACE_ID;
-    this.workspaceEncryptionKey = options.workspaceEncryptionKey || process.env.CRYPTENV_WORKSPACE_ENCRYPTION_KEY;
-    this.apiUrl = (options.apiUrl || process.env.CRYPTENV_API_URL || 'https://cryptenv-backend.onrender.com').replace(/\/$/, '');
-    this.token = options.token || null;
+    this._applyConfig(resolveConfig(options));
     this.userId = null;
     this.username = null;
     this.workspaces = [];
@@ -19,14 +46,29 @@ class CryptEnv {
     this.axiosInstance = null;
   }
 
+  _applyConfig(config) {
+    this.email = config.email;
+    this.password = config.password;
+    this.apiKey = config.apiKey;
+    this.token = config.token;
+    this.workspaceId = config.workspaceId;
+    this.masterKey = config.masterKey;
+    this.apiUrl = config.apiUrl;
+    this.workspaceName = config.workspaceName;
+  }
+
   _createAxios() {
+    const headers = { 'Content-Type': 'application/json' };
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    } else if (this.apiKey) {
+      headers['X-API-Key'] = this.apiKey;
+    }
+
     this.axiosInstance = axios.create({
       baseURL: this.apiUrl,
       timeout: 30000,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {})
-      }
+      headers
     });
   }
 
@@ -35,80 +77,144 @@ class CryptEnv {
       this._createAxios();
     }
     if (this.token) {
-      this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+      this.axiosInstance.defaults.headers.common.Authorization = `Bearer ${this.token}`;
+      delete this.axiosInstance.defaults.headers.common['X-API-Key'];
+    } else if (this.apiKey) {
+      this.axiosInstance.defaults.headers.common['X-API-Key'] = this.apiKey;
+      delete this.axiosInstance.defaults.headers.common.Authorization;
     }
     return this.axiosInstance;
   }
 
-  async init(options = {}) {
-    if (options.email != null) {
-      if (options.email) this.email = options.email;
-      if (options.password) this.password = options.password;
-      if (options.workspaceId) this.workspaceId = options.workspaceId;
-      if (options.workspaceEncryptionKey) this.workspaceEncryptionKey = options.workspaceEncryptionKey;
-      if (options.apiUrl) {
-        this.apiUrl = options.apiUrl.replace(/\/$/, '');
-        this.axiosInstance = null;
+  _requireMasterKey() {
+    if (!this.masterKey) {
+      throw new Error(
+        'CryptEnv SDK: master key not configured. Set CRYPTENV_MASTER_KEY in .env ' +
+        '(or CRYPTENV_WORKSPACE_ENCRYPTION_KEY for backward compatibility). ' +
+        'This is the workspace encryption key you set when creating the workspace.'
+      );
+    }
+  }
+
+  _selectWorkspace() {
+    if (this.workspaceId != null) {
+      return;
+    }
+    if (this.workspaceName && this.workspaces.length > 0) {
+      const byName = this.workspaces.find(
+        (w) => w.name && w.name.toLowerCase() === String(this.workspaceName).toLowerCase()
+      );
+      if (byName) {
+        this.workspaceId = byName.id;
+        return;
       }
     }
+    if (this.workspaces.length > 0) {
+      const firstWithKey = this.workspaces.find((w) => w.hasEncryptionKey);
+      this.workspaceId = (firstWithKey || this.workspaces[0]).id;
+    }
+  }
 
-    if (!this.email || !this.password) {
+  async _authenticateWithPassword() {
+    const api = this._getAxios();
+    const res = await api.post('/api/sdk/login', {
+      email: this.email,
+      password: this.password
+    });
+    const data = res.data;
+    this.token = data.token;
+    this.userId = data.userId;
+    this.email = data.email;
+    this.username = data.username;
+    this.workspaces = (data.workspaces || []).map(mapWorkspaceFromLogin);
+    this._createAxios();
+  }
+
+  async _authenticateWithApiKey() {
+    const api = this._getAxios();
+    const res = await api.get('/api/workspaces');
+    this.workspaces = (res.data || []).map(mapWorkspaceFromApi);
+    this.initialized = true;
+  }
+
+  async _authenticateWithToken() {
+    const api = this._getAxios();
+    const meRes = await api.get('/api/auth/me');
+    this.userId = meRes.data.id;
+    this.email = meRes.data.email;
+    this.username = meRes.data.username;
+    const wsRes = await api.get('/api/workspaces');
+    this.workspaces = (wsRes.data || []).map(mapWorkspaceFromApi);
+  }
+
+  async init(options = {}) {
+    if (options && Object.keys(options).length > 0) {
+      this._applyConfig(resolveConfig(options));
+      this.axiosInstance = null;
+    }
+
+    const hasPasswordAuth = Boolean(this.email && this.password);
+    const hasApiKeyAuth = Boolean(this.apiKey);
+    const hasTokenAuth = Boolean(this.token);
+
+    if (!hasPasswordAuth && !hasApiKeyAuth && !hasTokenAuth) {
       throw new Error(
-        'CryptEnv SDK: Missing credentials. Set CRYPTENV_EMAIL and CRYPTENV_PASSWORD in .env ' +
-        'or pass { email, password } to init().'
+        'CryptEnv SDK: missing credentials. Set CRYPTENV_EMAIL and CRYPTENV_PASSWORD, ' +
+        'or CRYPTENV_API_KEY, or CRYPTENV_TOKEN in .env, or pass them to init().'
       );
     }
 
     try {
-      const api = this._getAxios();
-      const res = await api.post('/api/sdk/login', {
-        email: this.email,
-        password: this.password
-      });
-
-      const data = res.data;
-      this.token = data.token;
-      this.userId = data.userId;
-      this.email = data.email;
-      this.username = data.username;
-      this.workspaces = data.workspaces || [];
-
-      if (this.workspaceId == null && this.workspaces.length > 0) {
-        const firstWithKey = this.workspaces.find(w => w.hasEncryptionKey);
-        this.workspaceId = (firstWithKey || this.workspaces[0]).id;
+      if (hasPasswordAuth) {
+        await this._authenticateWithPassword();
+      } else if (hasTokenAuth) {
+        await this._authenticateWithToken();
+      } else {
+        await this._authenticateWithApiKey();
       }
 
       this.initialized = true;
+      this._selectWorkspace();
 
-      if (this.workspaceId) {
-        await this.refreshEncryptedSecrets();
+      if (!this.workspaceId) {
+        throw new Error(
+          'CryptEnv SDK: no workspace available. Set CRYPTENV_WORKSPACE_ID or create a workspace first.'
+        );
       }
 
+      await this.refresh();
       return this._summary();
     } catch (err) {
-      let msg = err.message;
-      if (err && err.response && err.response.data) {
-        msg = err.response.data.message || err.response.data.error || err.response.statusText || msg;
-      }
-      throw new Error('CryptEnv SDK init failed: ' + msg);
+      throw new Error('CryptEnv SDK init failed: ' + sanitizeErrorMessage(err));
     }
   }
 
-  async refreshEncryptedSecrets() {
-    if (!this.initialized || !this.token) {
+  /** Reload encrypted secrets from the CryptEnv backend. */
+  async refresh() {
+    if (!this.initialized) {
       throw new Error('CryptEnv SDK not initialized. Call init() first.');
     }
     if (!this.workspaceId) {
-      throw new Error('No workspace selected. Set CRYPTENV_WORKSPACE_ID or create a workspace first.');
+      throw new Error('No workspace selected. Set CRYPTENV_WORKSPACE_ID.');
     }
-    const api = this._getAxios();
-    const res = await api.get(`/api/sdk/workspaces/${this.workspaceId}/encrypted-secrets-map`);
-    this.encryptedSecretsMap = new Map(Object.entries(res.data || {}));
-    this.plaintextCache.clear();
-    return this.encryptedSecretsMap.size;
+
+    try {
+      const api = this._getAxios();
+      const res = await api.get(`/api/sdk/workspaces/${this.workspaceId}/encrypted-secrets-map`);
+      this.encryptedSecretsMap = new Map(Object.entries(res.data || {}));
+      this.plaintextCache.clear();
+      return this.encryptedSecretsMap.size;
+    } catch (err) {
+      throw new Error('CryptEnv SDK refresh failed: ' + sanitizeErrorMessage(err));
+    }
   }
 
-  async listKeys() {
+  /** @deprecated Use refresh() — kept for backward compatibility. */
+  async refreshEncryptedSecrets() {
+    return this.refresh();
+  }
+
+  listKeys() {
     if (!this.initialized) {
       throw new Error('CryptEnv SDK not initialized. Call init() first.');
     }
@@ -123,15 +229,19 @@ class CryptEnv {
   }
 
   setActiveWorkspace(workspaceId) {
-    if (!workspaceId) throw new Error('workspaceId is required');
-    const ws = this.workspaces.find(w => w.id === workspaceId);
+    if (!workspaceId) {
+      throw new Error('workspaceId is required');
+    }
+    const ws = this.workspaces.find((w) => String(w.id) === String(workspaceId));
     if (!ws) {
       throw new Error(`Workspace ${workspaceId} not found in your workspaces.`);
     }
     if (!ws.hasEncryptionKey) {
-      console.warn(`[cryptenv/sdk] Workspace '${ws.name}' does not have an encryption key set. Set it via the dashboard or API before using it.`);
+      console.warn(
+        `[cryptenv/sdk] Workspace '${ws.name}' has no encryption key configured on the server.`
+      );
     }
-    this.workspaceId = workspaceId;
+    this.workspaceId = ws.id;
     this.encryptedSecretsMap.clear();
     this.plaintextCache.clear();
     return ws;
@@ -141,7 +251,9 @@ class CryptEnv {
     if (!this.initialized) {
       throw new Error('CryptEnv SDK not initialized. Call init() first.');
     }
-    if (!key) return null;
+    if (!key) {
+      return null;
+    }
 
     if (options.refresh === true) {
       this.plaintextCache.delete(key);
@@ -153,48 +265,55 @@ class CryptEnv {
 
     const enc = this.encryptedSecretsMap.get(key);
     if (enc == null) {
-      if (options.throwOnMissing === false) return undefined;
-      throw new Error(`Secret '${key}' not found in workspace ${this.workspaceId}. Available keys: ${this.listKeys().join(', ')}`);
-    }
-    if (!this.workspaceEncryptionKey) {
+      if (options.throwOnMissing === false) {
+        return undefined;
+      }
       throw new Error(
-        'CRYPTENV_WORKSPACE_ENCRYPTION_KEY not set. Set it in .env to decrypt secrets. ' +
-        'This is the same key you set when creating the workspace.'
+        `Secret '${key}' not found in workspace ${this.workspaceId}. ` +
+        `Available keys: ${this.listKeys().join(', ') || '(none)'}`
       );
     }
+
+    this._requireMasterKey();
     try {
-      const plain = decryptWithKey(enc, this.workspaceEncryptionKey);
+      const plain = decryptWithKey(enc, this.masterKey);
       this.plaintextCache.set(key, plain);
       return plain;
-    } catch (e) {
-      throw new Error(`Failed to decrypt secret '${key}'. Wrong CRYPTENV_WORKSPACE_ENCRYPTION_KEY may be incorrect. Details: ${e.message}`);
+    } catch {
+      throw new Error(
+        `Failed to decrypt secret '${key}'. Verify CRYPTENV_MASTER_KEY matches the workspace encryption key.`
+      );
     }
   }
 
   async getOrFetch(key) {
-    if (!this.initialized) throw new Error('Call init() first.');
-    const cached = this.encryptedSecretsMap.get(key);
-    if (cached != null) {
+    if (!this.initialized) {
+      throw new Error('CryptEnv SDK not initialized. Call init() first.');
+    }
+    if (this.encryptedSecretsMap.has(key)) {
       return this.get(key);
     }
-    const api = this._getAxios();
+
     try {
+      const api = this._getAxios();
       const res = await api.get(`/api/sdk/secrets/encrypted/${encodeURIComponent(key)}`);
       const encVal = res.data.encryptedValue;
       this.encryptedSecretsMap.set(key, encVal);
       return this.get(key);
-    } catch (e) {
-      if (e.response && e.response.status === 404) {
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
         throw new Error(`Secret '${key}' not found`);
       }
-      throw e;
+      throw new Error('CryptEnv SDK fetch failed: ' + sanitizeErrorMessage(err));
     }
   }
 
   async getAll() {
-    if (!this.initialized) throw new Error('Call init() first.');
+    if (!this.initialized) {
+      throw new Error('CryptEnv SDK not initialized. Call init() first.');
+    }
     if (this.encryptedSecretsMap.size === 0) {
-      await this.refreshEncryptedSecrets();
+      await this.refresh();
     }
     const result = {};
     for (const key of this.encryptedSecretsMap.keys()) {
@@ -203,68 +322,32 @@ class CryptEnv {
     return result;
   }
 
-  async setSecret(key, value, options = {}) {
-    if (!this.initialized) throw new Error('Call init() first.');
-    if (!key || value == null) {
-      throw new Error('key and value are required to create/update a secret');
+  /**
+   * Initialize (if needed), decrypt all secrets, and inject them into process.env.
+   * Does not write to disk.
+   */
+  async load(options = {}) {
+    if (!this.initialized) {
+      await this.init();
     }
-    // Server encrypts with the workspace key — send plaintext to avoid double-encryption.
-    const plain = String(value);
-    if (options.environmentId) {
-      const api = this._getAxios();
-      const payload = {
-        key,
-        value: plain,
-        environmentId: options.environmentId,
-        description: options.description || '',
-        encrypted: true
-      };
-      try {
-        await api.post('/api/secrets', payload);
-      } catch (e) {
-        const alreadyExists = e.response && (
-          e.response.status === 409 ||
-          (e.response.data && /already exists/i.test(e.response.data.message || ''))
-        );
-        if (alreadyExists) {
-          await api.put(
-            `/api/secrets/environment/${options.environmentId}/${encodeURIComponent(key)}`,
-            { value: plain }
-          );
-        } else {
-          throw new Error('Failed to save secret: ' + (e.response?.data?.message || e.message));
-        }
-      }
-      // Refresh ciphertext cache from server so local decrypt uses server-produced ciphertext
-      await this.refreshEncryptedSecrets();
-      this.plaintextCache.set(key, plain);
-      return true;
-    }
-    // Local-only cache (no environmentId): encrypt client-side for in-memory use
-    if (!this.workspaceEncryptionKey) {
-      throw new Error('CRYPTENV_WORKSPACE_ENCRYPTION_KEY must be set to encrypt secrets locally');
-    }
-    const encVal = encryptWithKey(plain, this.workspaceEncryptionKey);
-    this.encryptedSecretsMap.set(key, encVal);
-    this.plaintextCache.set(key, plain);
-    return true;
-  }
 
-  async deleteSecret(key, options = {}) {
-    if (!this.initialized) throw new Error('Call init() first.');
-    const api = this._getAxios();
-    try {
-      if (options.environmentId) {
-        await api.delete(`/api/secrets/environment/${options.environmentId}/${encodeURIComponent(key)}`);
-      } else {
-        await api.delete(`/api/secrets/${encodeURIComponent(key)}`);
+    const all = await this.getAll();
+    const prefix = options.prefix || '';
+    const overwrite = options.overwrite !== false;
+    let loaded = 0;
+
+    for (const [key, value] of Object.entries(all)) {
+      if (value == null) {
+        continue;
       }
-      this.encryptedSecretsMap.delete(key);
-      this.plaintextCache.delete(key);
-      return true;
-    } catch (e) {
-      throw new Error('Failed to delete secret: ' + (e.response?.data?.message || e.message));
+      const envKey = prefix + key;
+      if (overwrite || process.env[envKey] === undefined) {
+        process.env[envKey] = value;
+        loaded += 1;
+      }
     }
+
+    return loaded;
   }
 
   isInitialized() {
@@ -272,8 +355,10 @@ class CryptEnv {
   }
 
   getActiveWorkspace() {
-    if (!this.workspaceId) return null;
-    return this.workspaces.find(w => w.id === this.workspaceId) || null;
+    if (!this.workspaceId) {
+      return null;
+    }
+    return this.workspaces.find((w) => String(w.id) === String(this.workspaceId)) || null;
   }
 
   _summary() {
@@ -289,6 +374,75 @@ class CryptEnv {
       loadedSecretCount: this.encryptedSecretsMap.size
     };
   }
+
+  // --- Advanced: secret management (prefer cryptenv-cli for operator workflows) ---
+
+  async setSecret(key, value, options = {}) {
+    if (!this.initialized) {
+      throw new Error('CryptEnv SDK not initialized. Call init() first.');
+    }
+    if (!key || value == null) {
+      throw new Error('key and value are required');
+    }
+
+    const plain = String(value);
+    if (options.environmentId) {
+      const api = this._getAxios();
+      const payload = {
+        key,
+        value: plain,
+        environmentId: options.environmentId,
+        description: options.description || '',
+        encrypted: true
+      };
+      try {
+        await api.post('/api/secrets', payload);
+      } catch (e) {
+        const alreadyExists =
+          e.response &&
+          (e.response.status === 409 ||
+            (e.response.data && /already exists/i.test(e.response.data.message || '')));
+        if (alreadyExists) {
+          await api.put(
+            `/api/secrets/environment/${options.environmentId}/${encodeURIComponent(key)}`,
+            { value: plain }
+          );
+        } else {
+          throw new Error('Failed to save secret: ' + sanitizeErrorMessage(e));
+        }
+      }
+      await this.refresh();
+      this.plaintextCache.set(key, plain);
+      return true;
+    }
+
+    this._requireMasterKey();
+    const encVal = encryptWithKey(plain, this.masterKey);
+    this.encryptedSecretsMap.set(key, encVal);
+    this.plaintextCache.set(key, plain);
+    return true;
+  }
+
+  async deleteSecret(key, options = {}) {
+    if (!this.initialized) {
+      throw new Error('CryptEnv SDK not initialized. Call init() first.');
+    }
+    const api = this._getAxios();
+    try {
+      if (options.environmentId) {
+        await api.delete(
+          `/api/secrets/environment/${options.environmentId}/${encodeURIComponent(key)}`
+        );
+      } else {
+        await api.delete(`/api/secrets/${encodeURIComponent(key)}`);
+      }
+      this.encryptedSecretsMap.delete(key);
+      this.plaintextCache.delete(key);
+      return true;
+    } catch (e) {
+      throw new Error('Failed to delete secret: ' + sanitizeErrorMessage(e));
+    }
+  }
 }
 
 const defaultInstance = new CryptEnv();
@@ -297,3 +451,4 @@ defaultInstance.CryptEnv = CryptEnv;
 module.exports = defaultInstance;
 module.exports.CryptEnv = CryptEnv;
 module.exports.default = defaultInstance;
+module.exports.resolveMasterKey = resolveMasterKey;

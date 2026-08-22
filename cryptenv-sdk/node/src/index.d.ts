@@ -1,10 +1,14 @@
 export interface CryptEnvInitOptions {
   email?: string;
   password?: string;
+  apiKey?: string;
+  token?: string;
   workspaceId?: number | string;
+  /** Preferred name for the local workspace encryption key. */
+  masterKey?: string;
+  /** @deprecated Use masterKey — kept for backward compatibility. */
   workspaceEncryptionKey?: string;
   apiUrl?: string;
-  token?: string;
 }
 
 export interface CryptEnvWorkspaceSummary {
@@ -22,11 +26,11 @@ export interface CryptEnvWorkspaceSummary {
 export interface CryptEnvInitResult {
   success: boolean;
   user: {
-    email: string;
-    userId: number;
-    username: string;
+    email: string | null;
+    userId: number | null;
+    username: string | null;
   };
-  activeWorkspaceId: number | null;
+  activeWorkspaceId: number | string | null;
   workspaceCount: number;
   loadedSecretCount: number;
 }
@@ -34,6 +38,13 @@ export interface CryptEnvInitResult {
 export interface GetOptions {
   refresh?: boolean;
   throwOnMissing?: boolean;
+}
+
+export interface LoadOptions {
+  /** Prefix applied to each secret key when setting process.env (default: ""). */
+  prefix?: string;
+  /** When false, existing process.env values are not overwritten (default: true). */
+  overwrite?: boolean;
 }
 
 export interface SetOptions {
@@ -48,17 +59,20 @@ export interface DeleteOptions {
 export declare class CryptEnv {
   constructor(options?: CryptEnvInitOptions);
   init(options?: CryptEnvInitOptions): Promise<CryptEnvInitResult>;
+  refresh(): Promise<number>;
+  /** @deprecated Use refresh() */
   refreshEncryptedSecrets(): Promise<number>;
-  listKeys(): Promise<string[]>;
+  listKeys(): string[];
   listWorkspaces(): CryptEnvWorkspaceSummary[];
   setActiveWorkspace(workspaceId: number | string): CryptEnvWorkspaceSummary;
-  get(key: string, options?: GetOptions): string | undefined;
+  get(key: string, options?: GetOptions): string | undefined | null;
   getOrFetch(key: string): Promise<string>;
   getAll(): Promise<Record<string, string | undefined>>;
-  setSecret(key: string, value: string, options?: SetOptions): Promise<boolean>;
-  deleteSecret(key: string, options?: DeleteOptions): Promise<boolean>;
+  load(options?: LoadOptions): Promise<number>;
   isInitialized(): boolean;
   getActiveWorkspace(): CryptEnvWorkspaceSummary | null;
+  setSecret(key: string, value: string, options?: SetOptions): Promise<boolean>;
+  deleteSecret(key: string, options?: DeleteOptions): Promise<boolean>;
 }
 
 declare const cryptenv: CryptEnv & { CryptEnv: typeof CryptEnv; default: CryptEnv };

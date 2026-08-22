@@ -1,7 +1,7 @@
 {
   "name": "@cryptenv/sdk",
-  "version": "1.1.0",
-  "description": "CryptEnv Node.js SDK for Spring Boot CryptEnv API — AES-256-GCM client decrypt via /api/sdk/* plus secret CRUD. Set CRYPTENV_API_URL (default https://cryptenv-backend.onrender.com).",
+  "version": "1.2.0",
+  "description": "CryptEnv runtime secrets SDK for Node.js — authenticate, fetch encrypted secrets, decrypt locally with CRYPTENV_MASTER_KEY, and consume via get() or load().",
   "main": "src/index.js",
   "types": "src/index.d.ts",
   "files": [
@@ -10,7 +10,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/crypto.test.js",
+    "test": "node test/crypto.test.js && node test/config.test.js && node test/sdk.test.js",
     "example": "node test/example.js",
     "lint": "echo \"No lint configured\""
   },
