@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.flyway.FlywayProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 
 import javax.sql.DataSource;
@@ -16,6 +17,7 @@ public class FlywayConfig {
 
     @Bean(initMethod = "migrate")
     @Primary
+    @Lazy(false)
     @ConditionalOnProperty(name = "cryptenv.flyway.enabled", havingValue = "true", matchIfMissing = true)
     public Flyway flyway(DataSource dataSource) {
         Flyway flyway = Flyway.configure()

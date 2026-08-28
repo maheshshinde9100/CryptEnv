@@ -164,7 +164,7 @@ public class SdkController {
         return ResponseEntity.ok(dtos);
     }
 
-    @GetMapping("/secrets/encrypted/{key}")
+    @GetMapping({"/secrets/{key}", "/secrets/encrypted/{key}"})
     @Operation(summary = "[SDK] Get a single secret in ENCRYPTED form by key for client-side decryption")
     public ResponseEntity<EncryptedSecretDto> getEncryptedSecretByKey(@PathVariable String key) {
         User currentUser = securityService.getCurrentUser();
