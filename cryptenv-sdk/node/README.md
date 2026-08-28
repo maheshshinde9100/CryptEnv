@@ -1,4 +1,4 @@
-# @cryptenv/sdk
+# cryptenv-sdk
 
 Runtime secret consumption SDK for Node.js applications.
 
@@ -9,7 +9,7 @@ For secret **management** (login, set, delete, workspace admin), use [`cryptenv-
 ## Install
 
 ```bash
-npm install @cryptenv/sdk
+npm install cryptenv-sdk
 ```
 
 ## Configuration
@@ -45,7 +45,7 @@ Optional: `.cryptenv.json` in the project root can supply `apiUrl` and `workspac
 ### Retrieve secrets in code
 
 ```js
-const cryptenv = require('@cryptenv/sdk');
+const cryptenv = require('cryptenv-sdk');
 
 await cryptenv.init();
 

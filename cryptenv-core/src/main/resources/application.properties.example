@@ -19,8 +19,16 @@ server.port=${PORT:8080}
 server.address=0.0.0.0
 server.shutdown=graceful
 
-# -------- Application Name --------
+# -------- Application Name & Startup --------
 spring.application.name=cryptenv-core
+spring.main.banner-mode=off
+
+# -------- Fast Cold-Start (GraalVM JIT on Render 512MB) --------
+# JVM system properties applied in Dockerfile JAVA_OPTS:
+#   -Dspring.beaninfo.ignore=true   (skip java.beans.BeanInfo classpath scan, ~1s saved)
+#   -Djava.awt.headless=true        (no AWT toolkit)
+#   TieredStopAtLevel=1 + SerialGC  (fast warmup, low heap overhead)
+# All of these are already applied in cryptenv-core/Dockerfile.
 
 # -------- CORS (comma-separated dashboard URLs) --------
 cryptenv.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}

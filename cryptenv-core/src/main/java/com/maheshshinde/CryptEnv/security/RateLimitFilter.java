@@ -52,7 +52,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return true;
         }
         String path = request.getRequestURI();
-        return path != null && path.equals("/api/health");
+        return path != null && (path.equals("/api/health") || path.equals("/health"));
     }
 
     @Override
