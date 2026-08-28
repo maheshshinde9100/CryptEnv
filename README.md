@@ -10,7 +10,7 @@ Secrets are stored as AES-256-GCM ciphertext, isolated by workspace and environm
 [![npm cryptenv-cli](https://img.shields.io/npm/v/cryptenv-cli?label=cryptenv-cli&color=CB3837&logo=npm)](https://www.npmjs.com/package/cryptenv-cli)
 [![npm cryptenv-sdk](https://img.shields.io/npm/v/cryptenv-sdk?label=cryptenv-sdk&color=CB3837&logo=npm)](https://www.npmjs.com/package/cryptenv-sdk)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.maheshshinde9100/cryptenv-sdk?label=cryptenv-sdk%20(Java)&color=C71A36&logo=apachemaven)](https://central.sonatype.com/artifact/io.github.maheshshinde9100/cryptenv-sdk)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/maheshshinde9100.cryptenv?label=VS%20Code&color=007ACC&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=maheshshinde9100.cryptenv)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-CryptEnv-007ACC?logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=maheshshinde9100.cryptenv)
 
 [Dashboard](https://cryptenv-dashboard.vercel.app/) · [Repository](https://github.com/maheshshinde9100/CryptEnv) · [Report an Issue](https://github.com/maheshshinde9100/CryptEnv/issues)
 
@@ -36,7 +36,6 @@ Secrets are stored as AES-256-GCM ciphertext, isolated by workspace and environm
 | Node SDK (npm) | [npmjs.com/package/cryptenv-sdk](https://www.npmjs.com/package/cryptenv-sdk) | Live |
 | Java SDK (Maven Central) | [central.sonatype.com/artifact/io.github.maheshshinde9100/cryptenv-sdk](https://central.sonatype.com/artifact/io.github.maheshshinde9100/cryptenv-sdk) | Live |
 | VS Code Extension | [CryptEnv – Secrets Manager](https://marketplace.visualstudio.com/items?itemName=maheshshinde9100.cryptenv) | v1.2.0 |
-| API | `https://cryptenv-backend.onrender.com/api` | Live |
 
 ---
 
