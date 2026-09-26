@@ -1,8 +1,8 @@
 {
   "name": "cryptenv",
   "displayName": "CryptEnv - Secrets Manager",
-  "description": "Manage CryptEnv workspaces, environments, and encrypted secrets from VS Code (JWT / API key). Workspace encryption keys, Secrets Explorer, cursor insert. Default: https://cryptenv-backend.onrender.com/api",
-  "version": "1.2.0",
+  "description": "Encrypted environment secrets for VS Code. Sign in with JWT or API key, browse workspaces and environments, preview/copy/insert secrets at cursor, and manage AES-256-GCM encrypted vaults backed by CryptEnv.",
+  "version": "1.4.0",
   "publisher": "maheshshinde9100",
   "author": {
     "name": "Mahesh Shinde",
@@ -13,7 +13,8 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "SCM Providers"
   ],
   "keywords": [
     "secrets",
@@ -25,6 +26,8 @@
     "secret management",
     "key management",
     "vault",
+    "encryption",
+    "aes",
     "cryptenv"
   ],
   "pricing": "Free",
@@ -37,6 +40,16 @@
       "url": "https://img.shields.io/badge/License-MIT-8A2BE2",
       "href": "https://github.com/maheshshinde9100/CryptEnv/blob/main/LICENSE",
       "description": "License: MIT"
+    },
+    {
+      "url": "https://img.shields.io/badge/Security-AES--256--GCM-007ACC",
+      "href": "https://github.com/maheshshinde9100/CryptEnv#architecture",
+      "description": "AES-256-GCM encryption"
+    },
+    {
+      "url": "https://img.shields.io/badge/Dashboard-Live-22c55e",
+      "href": "https://cryptenv-dashboard.vercel.app/",
+      "description": "Dashboard: Live"
     }
   ],
   "qna": "https://github.com/maheshshinde9100/CryptEnv/discussions",
@@ -45,7 +58,22 @@
     "onCommand:cryptenv-vscode.login",
     "onCommand:cryptenv-vscode.register",
     "onCommand:cryptenv-vscode.setApiKey",
-    "onCommand:cryptenv-vscode.setBaseUrl"
+    "onCommand:cryptenv-vscode.setBaseUrl",
+    "onCommand:cryptenv-vscode.logout",
+    "onCommand:cryptenv-vscode.profile",
+    "onCommand:cryptenv-vscode.refreshSecrets",
+    "onCommand:cryptenv-vscode.createWorkspace",
+    "onCommand:cryptenv-vscode.deleteWorkspace",
+    "onCommand:cryptenv-vscode.setEncryptionKey",
+    "onCommand:cryptenv-vscode.createEnvironment",
+    "onCommand:cryptenv-vscode.deleteEnvironment",
+    "onCommand:cryptenv-vscode.addSecret",
+    "onCommand:cryptenv-vscode.editSecret",
+    "onCommand:cryptenv-vscode.deleteSecret",
+    "onCommand:cryptenv-vscode.previewSecret",
+    "onCommand:cryptenv-vscode.copyValue",
+    "onCommand:cryptenv-vscode.insertKey",
+    "onCommand:cryptenv-vscode.insertValue"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -61,7 +89,8 @@
         "command": "cryptenv-vscode.register",
         "title": "CryptEnv: Create Account",
         "shortTitle": "Create Account",
-        "category": "CryptEnv"
+        "category": "CryptEnv",
+        "icon": "$(add)"
       },
       {
         "command": "cryptenv-vscode.logout",
@@ -113,11 +142,25 @@
         "icon": "$(trash)"
       },
       {
+        "command": "cryptenv-vscode.setEncryptionKey",
+        "title": "CryptEnv: Set Workspace Encryption Key",
+        "shortTitle": "Set Encryption Key",
+        "category": "CryptEnv",
+        "icon": "$(lock)"
+      },
+      {
         "command": "cryptenv-vscode.createEnvironment",
         "title": "CryptEnv: Create Environment",
         "shortTitle": "Create Environment",
         "category": "CryptEnv",
         "icon": "$(add)"
+      },
+      {
+        "command": "cryptenv-vscode.deleteEnvironment",
+        "title": "CryptEnv: Delete Environment",
+        "shortTitle": "Delete Environment",
+        "category": "CryptEnv",
+        "icon": "$(trash)"
       },
       {
         "command": "cryptenv-vscode.addSecret",
@@ -193,7 +236,7 @@
     "viewsWelcome": [
       {
         "view": "cryptenv-secrets-view",
-        "contents": "Sign in to CryptEnv to browse workspaces, environments, and secrets.\n[Sign In](command:cryptenv-vscode.login)\n[Use API Key](command:cryptenv-vscode.setApiKey)\n[Create Account](command:cryptenv-vscode.register)\n[Set Backend URL](command:cryptenv-vscode.setBaseUrl)\nLearn more at the [CryptEnv repository](https://github.com/maheshshinde9100/CryptEnv)."
+        "contents": "# CryptEnv Vault\n\nYour editor-native workspace for AES-256-GCM encrypted environment variables.\n\n## Get Started\n\n[Sign In](command:cryptenv-vscode.login)\u00a0\u00b7\u00a0[Create Account](command:cryptenv-vscode.register)\u00a0\u00b7\u00a0[Use API Key](command:cryptenv-vscode.setApiKey)\n\n## Configure\n\nConnected by default to the hosted CryptEnv API:\n`https://cryptenv-backend.onrender.com/api`\n\n[Use self-hosted backend](command:cryptenv-vscode.setBaseUrl)\u00a0\u00b7\u00a0[Documentation](https://github.com/maheshshinde9100/CryptEnv/tree/main/cryptenv-vscode#readme)\n\n## Features\n\n- Workspace-scoped encryption keys (16\u2013512 chars)\n- DEVELOPMENT / STAGING / PRODUCTION environments\n- Preview, copy, or insert secrets directly at the cursor\n- JWT and API-key authentication\n- VS Code SecretStorage for credential persistence\n- Self-hosted backend support"
       }
     ],
     "menus": {
@@ -239,20 +282,28 @@
           "group": "CryptEnv@11"
         },
         {
-          "command": "cryptenv-vscode.createEnvironment",
+          "command": "cryptenv-vscode.setEncryptionKey",
           "group": "CryptEnv@12"
         },
         {
-          "command": "cryptenv-vscode.addSecret",
+          "command": "cryptenv-vscode.createEnvironment",
           "group": "CryptEnv@13"
         },
         {
-          "command": "cryptenv-vscode.editSecret",
+          "command": "cryptenv-vscode.deleteEnvironment",
           "group": "CryptEnv@14"
         },
         {
-          "command": "cryptenv-vscode.deleteSecret",
+          "command": "cryptenv-vscode.addSecret",
           "group": "CryptEnv@15"
+        },
+        {
+          "command": "cryptenv-vscode.editSecret",
+          "group": "CryptEnv@16"
+        },
+        {
+          "command": "cryptenv-vscode.deleteSecret",
+          "group": "CryptEnv@17"
         },
         {
           "command": "cryptenv-vscode.previewSecret",
@@ -320,14 +371,34 @@
           "group": "1_workspace@1"
         },
         {
-          "command": "cryptenv-vscode.createEnvironment",
+          "command": "cryptenv-vscode.setEncryptionKey",
           "when": "view == cryptenv-secrets-view && viewItem == workspaceItem",
           "group": "1_workspace@2"
         },
         {
+          "command": "cryptenv-vscode.createEnvironment",
+          "when": "view == cryptenv-secrets-view && viewItem == workspaceItem",
+          "group": "1_workspace@3"
+        },
+        {
+          "command": "cryptenv-vscode.setEncryptionKey",
+          "when": "view == cryptenv-secrets-view && viewItem == workspaceItemNeedsKey",
+          "group": "0_key@1"
+        },
+        {
+          "command": "cryptenv-vscode.setEncryptionKey",
+          "when": "view == cryptenv-secrets-view && viewItem == needsKeyItem",
+          "group": "0_key@1"
+        },
+        {
+          "command": "cryptenv-vscode.deleteEnvironment",
+          "when": "view == cryptenv-secrets-view && viewItem == environmentItem",
+          "group": "0_env@1"
+        },
+        {
           "command": "cryptenv-vscode.addSecret",
           "when": "view == cryptenv-secrets-view && viewItem == environmentItem",
-          "group": "1_env@1"
+          "group": "1_env@2"
         },
         {
           "command": "cryptenv-vscode.previewSecret",
@@ -365,19 +436,17 @@
   "scripts": {
     "lint": "echo \"Linting not configured\"",
     "pretest": "npm run lint",
-    "test": "echo \"Tests not configured\" && exit 0",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "test": "node test/api.test.js && node test/extension.test.js",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.85.0",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
-  },
-  "dependencies": {
-    "axios": "^1.19.0"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^4.0.0"
   },
   "extensionPack": [],
   "extensionDependencies": [],
