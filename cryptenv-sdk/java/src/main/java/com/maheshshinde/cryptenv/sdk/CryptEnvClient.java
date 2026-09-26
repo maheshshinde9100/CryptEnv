@@ -24,30 +24,33 @@ public class CryptEnvClient {
     private boolean initialized = false;
     private String token;
     private String workspaceId;
+
     private Long environmentId;
 
     private Map<String, String> encryptedSecretsMap = new ConcurrentHashMap<>();
-    private Map<String, String> plaintextCache = new ConcurrentHashMap<>();
+     private Map<String,String> plaintextCache = new ConcurrentHashMap<>();
 
-    public CryptEnvClient() {
-        this(new CryptEnvConfig());
-    }
+    public CryptEnvClient(){ this(new CryptEnvConfig());}
+ 
+     public CryptEnvClient(CryptEnvConfig config) {
+         this.config = config;
+         this.httpClient = HttpClient.newBuilder()
+                 .connectTimeout(Duration.ofSeconds(10))
+                 .build();
 
-    public CryptEnvClient(CryptEnvConfig config) {
-        this.config = config;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
-        this.objectMapper = new ObjectMapper();
-        this.token = config.getToken();
+     this.objectMapper = new ObjectMapper();
+    this.token = config.getToken();
+
         this.workspaceId = config.getWorkspaceId();
     }
 
-    public static CryptEnvClient create(CryptEnvConfig config) throws IOException, InterruptedException {
-        CryptEnvClient client = new CryptEnvClient(config);
+    public static CryptEnvClient create(CryptEnvConfig config) throws IOException, InterruptedException{
+     CryptEnvClient client = new CryptEnvClient(config);
+    
         client.init();
         return client;
-    }
+
+     }
 
     public static CryptEnvClient create() throws IOException, InterruptedException {
         return create(new CryptEnvConfig());

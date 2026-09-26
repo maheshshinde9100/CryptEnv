@@ -35,7 +35,8 @@ Secrets are stored as AES-256-GCM ciphertext, isolated by workspace and environm
 | CLI (npm) | [npmjs.com/package/cryptenv-cli](https://www.npmjs.com/package/cryptenv-cli) | v1.3.0 |
 | Node SDK (npm) | [npmjs.com/package/cryptenv-sdk](https://www.npmjs.com/package/cryptenv-sdk) | Live |
 | Java SDK (Maven Central) | [central.sonatype.com/artifact/io.github.maheshshinde9100/cryptenv-sdk](https://central.sonatype.com/artifact/io.github.maheshshinde9100/cryptenv-sdk) | Live |
-| VS Code Extension | [CryptEnv – Secrets Manager](https://marketplace.visualstudio.com/items?itemName=maheshshinde9100.cryptenv) | v1.2.0 |
+| VS Code Extension | [CryptEnv – Secrets Manager](https://marketplace.visualstudio.com/items?itemName=maheshshinde9100.cryptenv) | v1.2.1 |
+| API | `https://cryptenv-backend.onrender.com/api` | Live |
 
 ---
 
@@ -52,7 +53,7 @@ Plaintext `.env` files are a persistent source of leaks — through git history,
 | `cryptenv-core/` | Spring Boot 3.2 API — PostgreSQL, Flyway, JWT and API-key auth, AES-256-GCM encryption, rate limiting | Render deployment |
 | `cryptenv-dashboard/` | React (Vite + Tailwind) vault interface, landing page, documentation, audit log | [Live](https://cryptenv-dashboard.vercel.app/) |
 | `cryptenv-cli/` | Command-line client for workspace, secret, and runtime-injection operations | 1.3.0 |
-| `cryptenv-vscode/` | Secrets Explorer with JWT / API-key authentication | 1.2.0 |
+| `cryptenv-vscode/` | Secrets Explorer with JWT / API-key authentication | 1.2.1 |
 | `cryptenv-sdk/node/` | [cryptenv-sdk](https://www.npmjs.com/package/cryptenv-sdk) — Node client with optional client-side decryption | 1.1.0 |
 | `cryptenv-sdk/java/` | [io.github.maheshshinde9100:cryptenv-sdk](https://central.sonatype.com/artifact/io.github.maheshshinde9100/cryptenv-sdk) — Java client, published on Maven Central | 1.1.0 |
 

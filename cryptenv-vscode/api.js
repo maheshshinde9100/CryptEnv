@@ -1,5 +1,3 @@
-const axios = require('axios');
-
 class CryptEnvAPI {
     constructor(context) {
         this.context = context;
@@ -13,8 +11,12 @@ class CryptEnvAPI {
     }
 
     async setBaseUrl(url) {
-        const trimmed = (url || '').replace(/\/+$/, '');
-        await this.context.globalState.update('cryptenv.baseUrl', trimmed);
+        const trimmed = (url || '').trim().replace(/\/+$/, '');
+        if (!/^https?:\/\//i.test(trimmed)) {
+            throw new Error('Backend URL must start with http:// or https://');
+        }
+        const apiUrl = /\/api$/i.test(trimmed) ? trimmed : trimmed + '/api';
+        await this.context.globalState.update('cryptenv.baseUrl', apiUrl);
     }
 
     async getJwt() {
@@ -98,20 +100,32 @@ class CryptEnvAPI {
             headers['X-API-Key'] = apiKey;
         }
 
+        const abortController = new AbortController();
+        const timeout = setTimeout(function() { abortController.abort(); }, 30000);
         try {
-            const response = await axios({
-                baseURL: baseUrl,
-                ...config,
-                headers: { ...headers, ...(config.headers || {}) },
-                timeout: 15000
+            const response = await fetch(baseUrl + config.url, {
+                method: config.method || 'get',
+                headers: Object.assign({}, headers, config.headers || {}),
+                body: config.data === undefined ? undefined : JSON.stringify(config.data),
+                signal: abortController.signal
             });
-            return response.data;
-        } catch (error) {
-            if (error.response) {
-                const status = error.response.status;
-                const msg = this._extractMessage(error, 'Request failed');
+            const text = response.status === 204 ? '' : await response.text();
+            let data = text;
+            if (text) {
+                try {
+                    data = JSON.parse(text);
+                } catch (_) {
+                }
+            }
+            if (!response.ok) {
+                const status = response.status;
+                const msg = this._extractMessage({ response: { data: data } }, 'Request failed');
                 if (status === 401 || status === 403) {
-                    throw new Error('Authentication failed: ' + (msg || 'invalid or expired credentials'));
+                    if (jwt) {
+                        this._jwtCache = null;
+                        try { await this.context.secrets.delete('cryptenv.jwt'); } catch (_) {}
+                    }
+                    throw new Error('Authentication failed: ' + (msg || 'invalid or expired credentials. Please sign in again.'));
                 }
                 if (status === 404) {
                     throw new Error('Resource not found: ' + (msg || '404'));
@@ -127,22 +141,27 @@ class CryptEnvAPI {
                 }
                 throw new Error('Server error (' + status + '): ' + (msg || 'unexpected response'));
             }
-            if (error.code === 'ECONNABORTED') {
+            return data;
+        } catch (error) {
+            if (error && error.name === 'AbortError') {
                 throw new Error('Request timed out. Check your network or the backend URL.');
             }
-            if (error.code === 'ERR_NETWORK' || !error.status) {
+            if (error instanceof TypeError) {
                 throw new Error('Could not reach the CryptEnv backend. Verify your API URL and internet connection.');
             }
             throw new Error(this._extractMessage(error, 'Request failed'));
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
     async login(email, password) {
-        return this._request({
+        const resp = await this._request({
             method: 'post',
             url: '/auth/login',
             data: { email, password }
         });
+        return resp;
     }
 
     async register(email, username, password, firstName, lastName) {
@@ -168,10 +187,11 @@ class CryptEnvAPI {
     }
 
     async listWorkspaces() {
-        return this._request({
+        const result = await this._request({
             method: 'get',
             url: '/workspaces'
         });
+        return Array.isArray(result) ? result : [];
     }
 
     async createWorkspace(name, description, workspaceEncryptionKey) {
@@ -201,38 +221,55 @@ class CryptEnvAPI {
     }
 
     async listEnvironments(workspaceId) {
-        return this._request({
+        const result = await this._request({
             method: 'get',
             url: '/environments/workspace/' + encodeURIComponent(workspaceId)
         });
+        return Array.isArray(result) ? result : [];
     }
 
     async createEnvironment(workspaceId, name) {
         return this._request({
             method: 'post',
             url: '/environments',
-            data: { workspaceId, name, isActive: true }
+            data: { workspaceId, name }
+        });
+    }
+
+    async deleteEnvironment(environmentId) {
+        return this._request({
+            method: 'delete',
+            url: '/environments/' + encodeURIComponent(environmentId)
         });
     }
 
     async listSecrets() {
-        return this._request({
+        const result = await this._request({
             method: 'get',
             url: '/secrets'
         });
+        return Array.isArray(result) ? result : [];
     }
 
     async listSecretsByEnvironment(environmentId) {
-        return this._request({
+        const result = await this._request({
             method: 'get',
             url: '/secrets/environment/' + encodeURIComponent(environmentId)
         });
+        return Array.isArray(result) ? result : [];
     }
 
     async getSecret(key) {
         return this._request({
             method: 'get',
             url: '/secrets/' + encodeURIComponent(key)
+        });
+    }
+
+    async getSecretByEnvironment(environmentId, key) {
+        return this._request({
+            method: 'get',
+            url: '/secrets/environment/' + encodeURIComponent(environmentId) + '/' + encodeURIComponent(key)
         });
     }
 
@@ -256,11 +293,18 @@ class CryptEnvAPI {
 
     async updateSecret(environmentId, key, value, description) {
         const payload = {};
-        if (value !== undefined) {
+        if (value !== undefined && value !== null && value !== '') {
             payload.value = value;
+        } else {
+            const existing = await this.getSecretByEnvironment(environmentId, key);
+            if (existing && existing.value !== undefined) {
+                payload.value = existing.value;
+            } else {
+                throw new Error('Value is required when updating a secret.');
+            }
         }
         if (description !== undefined) {
-            payload.description = description;
+            payload.description = description || '';
         }
         return this._request({
             method: 'put',
@@ -269,10 +313,10 @@ class CryptEnvAPI {
         });
     }
 
-    async deleteSecret(key) {
+    async deleteSecret(environmentId, key) {
         return this._request({
             method: 'delete',
-            url: '/secrets/' + encodeURIComponent(key)
+            url: '/secrets/environment/' + encodeURIComponent(environmentId) + '/' + encodeURIComponent(key)
         });
     }
 }
