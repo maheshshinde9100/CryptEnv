@@ -132,4 +132,22 @@ public class SecretController {
         );
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/environment/{environmentId}/{key}")
+    @Operation(summary = "Delete a secret from a specific environment")
+    public ResponseEntity<Void> deleteSecretByEnvironment(@PathVariable Long environmentId,
+                                                            @PathVariable String key,
+                                                            HttpServletRequest request) {
+        securityService.checkPermission(Permission.SECRET_DELETE);
+        secretService.deleteSecret(environmentId, key);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "SECRET_DELETE",
+                "SECRET",
+                key,
+                true,
+                request
+        );
+        return ResponseEntity.noContent().build();
+    }
 }
