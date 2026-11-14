@@ -8,9 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -62,10 +62,13 @@ public class AuditLogService {
         return auditLogRepository.findByFilters(userId, action, resourceType, startDate, endDate, success, pageable);
     }
 
-    public void deleteOldLogs(LocalDateTime beforeDate) {
-        auditLogRepository.findByTimestampAfter(beforeDate).forEach(auditLog -> {
-            auditLogRepository.delete(auditLog);
-        });
+    /**
+     * Retention cleanup: remove logs with timestamp strictly before {@code beforeDate}.
+     * Previous implementation used findByTimestampAfter and deleted the newest rows.
+     */
+    @Transactional
+    public int deleteOldLogs(LocalDateTime beforeDate) {
+        return auditLogRepository.deleteByTimestampBefore(beforeDate);
     }
 
     private String getClientIpAddress(HttpServletRequest request) {
