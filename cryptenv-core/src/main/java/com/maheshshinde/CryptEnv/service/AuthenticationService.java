@@ -59,6 +59,17 @@ public class AuthenticationService {
 
             accountLockoutService.clearLockout(user.getId());
 
+            if (Boolean.TRUE.equals(user.getMfaEnabled())) {
+                String mfaToken = tokenProvider.generateMfaChallengeToken(user.getId(), user.getEmail());
+                return JwtResponseDto.builder()
+                        .mfaRequired(true)
+                        .mfaToken(mfaToken)
+                        .userId(user.getId())
+                        .username(user.getUsername())
+                        .email(user.getEmail())
+                        .build();
+            }
+
             TokenService.TokenPair pair = tokenService.issueTokenPair(user);
 
             return JwtResponseDto.builder()
@@ -68,6 +79,7 @@ public class AuthenticationService {
                     .userId(userPrincipal.getId())
                     .username(userPrincipal.getUsername())
                     .email(userPrincipal.getEmail())
+                    .mfaRequired(false)
                     .build();
         } catch (BadCredentialsException ex) {
             if (existing != null) {

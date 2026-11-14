@@ -30,7 +30,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
             String apiKey = request.getHeader("X-API-Key");
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt) && !tokenService.isAccessTokenRevoked(jwt)) {
+            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)
+                    && !tokenProvider.isMfaChallengeToken(jwt)
+                    && !tokenService.isAccessTokenRevoked(jwt)) {
                 Long userId = tokenProvider.getUserIdFromToken(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserById(userId);
                 UsernamePasswordAuthenticationToken authentication =

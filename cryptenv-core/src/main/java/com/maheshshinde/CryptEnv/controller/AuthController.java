@@ -2,12 +2,18 @@ package com.maheshshinde.CryptEnv.controller;
 
 import com.maheshshinde.CryptEnv.dto.ForgotPasswordDto;
 import com.maheshshinde.CryptEnv.dto.JwtResponseDto;
+import com.maheshshinde.CryptEnv.dto.MfaCodeDto;
+import com.maheshshinde.CryptEnv.dto.MfaDisableDto;
+import com.maheshshinde.CryptEnv.dto.MfaEnableResponseDto;
+import com.maheshshinde.CryptEnv.dto.MfaSetupResponseDto;
+import com.maheshshinde.CryptEnv.dto.MfaVerifyDto;
 import com.maheshshinde.CryptEnv.dto.ResetPasswordDto;
 import com.maheshshinde.CryptEnv.dto.UserLoginDto;
 import com.maheshshinde.CryptEnv.dto.UserRegistrationDto;
 import com.maheshshinde.CryptEnv.dto.UserResponseDto;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
 import com.maheshshinde.CryptEnv.service.AuthenticationService;
+import com.maheshshinde.CryptEnv.service.MfaService;
 import com.maheshshinde.CryptEnv.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +33,7 @@ public class AuthController {
     private final AuthenticationService authenticationService;
     private final AuditLogService auditLogService;
     private final PasswordResetService passwordResetService;
+    private final MfaService mfaService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user")
@@ -165,5 +172,68 @@ public class AuthController {
                 request
         );
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/mfa/setup")
+    @Operation(summary = "Begin TOTP MFA setup — returns Base32 secret and otpauth URI")
+    public ResponseEntity<MfaSetupResponseDto> mfaSetup(HttpServletRequest request) {
+        MfaSetupResponseDto response = mfaService.setup();
+        auditLogService.logEvent(
+                authenticationService.getUserByEmail(authenticationService.getCurrentUser().getEmail()),
+                "MFA_SETUP",
+                "USER",
+                null,
+                true,
+                request
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/mfa/enable")
+    @Operation(summary = "Confirm TOTP and enable MFA; returns one-time recovery codes")
+    public ResponseEntity<MfaEnableResponseDto> mfaEnable(@Valid @RequestBody MfaCodeDto dto,
+                                                          HttpServletRequest request) {
+        MfaEnableResponseDto response = mfaService.enable(dto.getCode());
+        auditLogService.logEvent(
+                authenticationService.getUserByEmail(authenticationService.getCurrentUser().getEmail()),
+                "MFA_ENABLED",
+                "USER",
+                null,
+                true,
+                request
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/mfa/disable")
+    @Operation(summary = "Disable MFA (requires password + TOTP or recovery code)")
+    public ResponseEntity<java.util.Map<String, String>> mfaDisable(@Valid @RequestBody MfaDisableDto dto,
+                                                                    HttpServletRequest request) {
+        mfaService.disable(dto);
+        auditLogService.logEvent(
+                authenticationService.getUserByEmail(authenticationService.getCurrentUser().getEmail()),
+                "MFA_DISABLED",
+                "USER",
+                null,
+                true,
+                request
+        );
+        return ResponseEntity.ok(java.util.Map.of("message", "MFA disabled"));
+    }
+
+    @PostMapping("/mfa/verify")
+    @Operation(summary = "Complete login after MFA challenge with TOTP or recovery code")
+    public ResponseEntity<JwtResponseDto> mfaVerify(@Valid @RequestBody MfaVerifyDto dto,
+                                                    HttpServletRequest request) {
+        JwtResponseDto jwtResponse = mfaService.verifyLogin(dto);
+        auditLogService.logEvent(
+                authenticationService.getUserByEmail(jwtResponse.getEmail()),
+                "MFA_LOGIN_VERIFIED",
+                "USER",
+                jwtResponse.getUserId().toString(),
+                true,
+                request
+        );
+        return ResponseEntity.ok(jwtResponse);
     }
 }

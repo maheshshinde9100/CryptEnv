@@ -106,4 +106,16 @@ public class User {
 
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
+
+    @Builder.Default
+    @Column(name = "mfa_enabled", nullable = false)
+    private Boolean mfaEnabled = false;
+
+    /** AES-GCM ciphertext of the Base32 TOTP seed (master-key encrypted). */
+    @Column(name = "mfa_secret", columnDefinition = "TEXT")
+    private String mfaSecret;
+
+    /** Comma-separated SHA-256 hashes of one-time recovery codes. */
+    @Column(name = "mfa_recovery_codes", columnDefinition = "TEXT")
+    private String mfaRecoveryCodes;
 }

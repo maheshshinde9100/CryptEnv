@@ -19,4 +19,9 @@ public class JwtResponseDto {
     private Long userId;
     private String username;
     private String email;
+
+    /** When true, client must call /api/auth/mfa/verify with mfaToken + TOTP/recovery code. */
+    private Boolean mfaRequired;
+    /** Short-lived challenge token issued when MFA is required after password login. */
+    private String mfaToken;
 }

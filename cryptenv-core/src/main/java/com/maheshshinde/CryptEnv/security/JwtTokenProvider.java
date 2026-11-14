@@ -20,6 +20,12 @@ public class JwtTokenProvider {
     @Value("${jwt.expiration:900000}")
     private long jwtExpirationMs;
 
+    /** MFA challenge token TTL — default 5 minutes. */
+    @Value("${jwt.mfa-challenge-expiration-ms:300000}")
+    private long mfaChallengeExpirationMs;
+
+    public static final String PURPOSE_MFA = "mfa";
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
@@ -43,6 +49,29 @@ public class JwtTokenProvider {
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    public String generateMfaChallengeToken(Long userId, String email) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + mfaChallengeExpirationMs);
+        return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject(Long.toString(userId))
+                .claim("email", email)
+                .claim("purpose", PURPOSE_MFA)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public boolean isMfaChallengeToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            return PURPOSE_MFA.equals(claims.get("purpose", String.class));
+        } catch (JwtException | IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     public Long getUserIdFromToken(String token) {
