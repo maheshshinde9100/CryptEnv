@@ -79,8 +79,13 @@ public class Secret {
     
     @Column(name = "updated_by_email")
     private String updatedByEmail;
-    
-    @Column(name = "encrypted_value", columnDefinition = "TEXT")
+
+    /**
+     * @deprecated Removed in V19 — use {@link #value} (ciphertext). Kept transient for in-memory
+     * compat during rollout of callers that still call getEncryptedValue().
+     */
+    @Deprecated
+    @Transient
     private String encryptedValue;
 
     @CreationTimestamp

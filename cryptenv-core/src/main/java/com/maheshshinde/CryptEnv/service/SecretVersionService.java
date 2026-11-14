@@ -33,8 +33,8 @@ public class SecretVersionService {
     private void validateSecretAccess(Secret secret, User user) {
         Workspace workspace = secret.getEnvironment().getWorkspace();
         boolean isOwner = workspace.getOwner().getId().equals(user.getId());
-        boolean isMember = workspace.getMembers().stream()
-                .anyMatch(m -> m.getId().equals(user.getId()));
+        boolean isMember = workspace.getMemberships().stream()
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()));
         if (!isOwner && !isMember) {
             throw new RuntimeException("Access denied: You do not have permission to access versions for this secret");
         }
@@ -147,8 +147,8 @@ public class SecretVersionService {
         targetVersion.setRotatedByEmail(rolledBackByEmail);
         secretVersionRepository.save(targetVersion);
 
-        secret.setEncryptedValue(targetVersion.getEncryptedValue());
         secret.setValue(targetVersion.getEncryptedValue());
+        secret.setEncryptedValue(null);
         secret.setUpdatedByEmail(rolledBackByEmail);
         secretRepository.save(secret);
 

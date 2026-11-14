@@ -37,8 +37,8 @@ public class SecretService {
     private void validateEnvironmentOwnership(Environment environment, User user) {
         Long ownerId = environment.getWorkspace().getOwner().getId();
         boolean isOwner = ownerId.equals(user.getId());
-        boolean isMember = environment.getWorkspace().getMembers().stream()
-                .anyMatch(m -> m.getId().equals(user.getId()));
+        boolean isMember = environment.getWorkspace().getMemberships().stream()
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()));
         if (!isOwner && !isMember) {
             throw new RuntimeException("Access denied: You do not have permission to access secrets in this workspace");
         }
@@ -51,7 +51,7 @@ public class SecretService {
 
     private Environment getOrCreateDefaultEnvironment(User user) {
         List<Workspace> ownedWorkspaces = workspaceRepository.findByOwnerId(user.getId());
-        List<Workspace> memberWorkspaces = workspaceRepository.findByMembersId(user.getId());
+        List<Workspace> memberWorkspaces = workspaceRepository.findByMembershipsUserId(user.getId());
         java.util.Set<Workspace> allWorkspaces = new java.util.LinkedHashSet<>();
         allWorkspaces.addAll(ownedWorkspaces);
         allWorkspaces.addAll(memberWorkspaces);
@@ -110,9 +110,15 @@ public class SecretService {
             throw new RuntimeException("Failed to retrieve workspace encryption key. Ensure it is set for this workspace.", e);
         }
 
+        int version = 1;
+        String aad = EncryptionService.aadFor(
+                environment.getWorkspace().getId(),
+                environment.getId(),
+                createDto.getKey(),
+                version);
         String encryptedValue;
         try {
-            encryptedValue = encryptionService.encryptWithKey(createDto.getValue(), workspaceKey);
+            encryptedValue = encryptionService.encryptWithKey(createDto.getValue(), workspaceKey, aad);
         } catch (EncryptionException e) {
             log.error("Failed to encrypt secret with workspace key", e);
             throw new RuntimeException("Failed to encrypt secret. Check workspace encryption key.", e);
@@ -124,7 +130,8 @@ public class SecretService {
                 .environment(environment)
                 .description(createDto.getDescription())
                 .encrypted(true)
-                .encryptedValue(encryptedValue)
+                .version(version)
+                .currentVersion(version)
                 .build();
 
         Secret savedSecret = secretRepository.save(secret);
@@ -197,9 +204,15 @@ public class SecretService {
         }
 
         String newValue = updateDto.getValue();
+        int nextVersion = (existingSecret.getVersion() == null ? 1 : existingSecret.getVersion()) + 1;
+        String aad = EncryptionService.aadFor(
+                existingSecret.getEnvironment().getWorkspace().getId(),
+                existingSecret.getEnvironment().getId(),
+                existingSecret.getKey(),
+                nextVersion);
         try {
-            existingSecret.setValue(encryptionService.encryptWithKey(newValue, workspaceKey));
-            existingSecret.setEncryptedValue(existingSecret.getValue());
+            existingSecret.setValue(encryptionService.encryptWithKey(newValue, workspaceKey, aad));
+            existingSecret.setEncryptedValue(null);
         } catch (EncryptionException e) {
             log.error("Failed to encrypt secret on update", e);
             throw new RuntimeException("Failed to encrypt secret on update", e);
@@ -208,7 +221,8 @@ public class SecretService {
         if (updateDto.getDescription() != null) {
             existingSecret.setDescription(updateDto.getDescription());
         }
-        existingSecret.setVersion(existingSecret.getVersion() + 1);
+        existingSecret.setVersion(nextVersion);
+        existingSecret.setCurrentVersion(nextVersion);
         existingSecret.setEncrypted(true);
 
         Secret savedSecret = secretRepository.save(existingSecret);
@@ -349,19 +363,29 @@ public class SecretService {
 
     private SecretResponseDto decryptAndMap(Secret secret) {
         String plainValue;
-        String storedValue = secret.getEncryptedValue() != null ? secret.getEncryptedValue() : secret.getValue();
+        String storedValue = secret.getValue() != null ? secret.getValue() : secret.getEncryptedValue();
 
         if (!Boolean.TRUE.equals(secret.getEncrypted())) {
             plainValue = storedValue;
         } else {
             try {
                 String workspaceKey = getWorkspaceEncryptionKeyForEnv(secret.getEnvironment());
-                plainValue = encryptionService.decryptWithKey(storedValue, workspaceKey);
+                String aad = EncryptionService.aadFor(
+                        secret.getEnvironment().getWorkspace().getId(),
+                        secret.getEnvironment().getId(),
+                        secret.getKey(),
+                        secret.getVersion() != null ? secret.getVersion() : 1);
+                try {
+                    plainValue = encryptionService.decryptWithKey(storedValue, workspaceKey, aad);
+                } catch (EncryptionException aadMiss) {
+                    // Legacy ciphertext written without AAD
+                    plainValue = encryptionService.decryptWithKey(storedValue, workspaceKey);
+                }
             } catch (ResourceNotFoundException e) {
                 log.warn("Workspace key missing for secret: {} - {}", secret.getKey(), e.getMessage());
                 plainValue = "[WORKSPACE_KEY_NOT_SET]";
             } catch (EncryptionException e) {
-                log.error("Failed to decrypt secret: {} - wrong workspace key or corrupted", secret.getKey(), e);
+                log.error("Failed to decrypt secret: {} - wrong workspace key, AAD, or corrupted", secret.getKey(), e);
                 plainValue = "[DECRYPTION_ERROR: Invalid workspace key]";
             } catch (Exception e) {
                 log.error("Unexpected error decrypting secret: {}", secret.getKey(), e);
