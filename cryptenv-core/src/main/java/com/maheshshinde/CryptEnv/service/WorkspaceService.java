@@ -1,12 +1,16 @@
 package com.maheshshinde.CryptEnv.service;
 
 import com.maheshshinde.CryptEnv.dto.WorkspaceCreateDto;
+import com.maheshshinde.CryptEnv.dto.WorkspaceMemberDto;
 import com.maheshshinde.CryptEnv.dto.WorkspaceResponseDto;
 import com.maheshshinde.CryptEnv.exception.ResourceAlreadyExistsException;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
+import com.maheshshinde.CryptEnv.model.Role;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.model.Workspace;
+import com.maheshshinde.CryptEnv.model.WorkspaceMember;
 import com.maheshshinde.CryptEnv.repository.UserRepository;
+import com.maheshshinde.CryptEnv.repository.WorkspaceMemberRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import com.maheshshinde.CryptEnv.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +25,7 @@ import java.util.stream.Collectors;
 public class WorkspaceService {
 
     private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
     private final UserRepository userRepository;
     private final EncryptionService encryptionService;
     private final SecurityService securityService;
@@ -48,7 +53,7 @@ public class WorkspaceService {
                 .build();
 
         Workspace savedWorkspace = workspaceRepository.save(workspace);
-        return mapToResponseDto(savedWorkspace);
+        return mapToResponseDto(savedWorkspace, currentUser);
     }
 
     @Transactional(readOnly = true)
@@ -57,7 +62,7 @@ public class WorkspaceService {
         Workspace workspace = workspaceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + id));
         validateWorkspaceAccess(workspace, currentUser);
-        return mapToResponseDto(workspace);
+        return mapToResponseDto(workspace, currentUser);
     }
 
     @Transactional(readOnly = true)
@@ -85,34 +90,106 @@ public class WorkspaceService {
     public List<WorkspaceResponseDto> getUserWorkspaces() {
         User currentUser = securityService.getCurrentUser();
         List<Workspace> ownedWorkspaces = workspaceRepository.findByOwnerId(currentUser.getId());
-        List<Workspace> memberWorkspaces = workspaceRepository.findByMembersId(currentUser.getId());
+        List<Workspace> memberWorkspaces = workspaceRepository.findByMembershipsUserId(currentUser.getId());
 
         java.util.Set<Workspace> allWorkspaces = new java.util.LinkedHashSet<>();
         allWorkspaces.addAll(ownedWorkspaces);
         allWorkspaces.addAll(memberWorkspaces);
 
         return allWorkspaces.stream()
-                .map(this::mapToResponseDto)
+                .map(w -> mapToResponseDto(w, currentUser))
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public WorkspaceResponseDto inviteMember(Long workspaceId, String email) {
+    public WorkspaceResponseDto inviteMember(Long workspaceId, String email, Role role) {
         User currentUser = securityService.getCurrentUser();
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
-        validateWorkspaceOwner(workspace, currentUser);
+        requireWorkspaceAdmin(workspace, currentUser);
+
+        Role assignedRole = role != null ? role : Role.DEVELOPER;
+        if (assignedRole == Role.OWNER) {
+            throw new IllegalArgumentException("Cannot invite as OWNER; transfer ownership instead");
+        }
 
         User userToInvite = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-        if (workspace.getMembers().contains(userToInvite)) {
+        if (workspace.getOwner().getId().equals(userToInvite.getId())) {
+            throw new ResourceAlreadyExistsException("User is already the workspace owner");
+        }
+        if (workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, userToInvite.getId())) {
             throw new ResourceAlreadyExistsException("User is already a member of this workspace");
         }
 
-        workspace.getMembers().add(userToInvite);
+        WorkspaceMember membership = WorkspaceMember.builder()
+                .workspace(workspace)
+                .user(userToInvite)
+                .role(assignedRole)
+                .build();
+        workspace.getMemberships().add(membership);
         Workspace savedWorkspace = workspaceRepository.save(workspace);
-        return mapToResponseDto(savedWorkspace);
+        return mapToResponseDto(savedWorkspace, currentUser);
+    }
+
+    @Transactional
+    public WorkspaceResponseDto changeMemberRole(Long workspaceId, Long userId, Role newRole) {
+        User currentUser = securityService.getCurrentUser();
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
+        requireWorkspaceAdmin(workspace, currentUser);
+
+        if (newRole == Role.OWNER) {
+            throw new IllegalArgumentException("Cannot assign OWNER via role change; transfer ownership instead");
+        }
+
+        WorkspaceMember membership = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found in workspace"));
+        membership.setRole(newRole);
+        workspaceMemberRepository.save(membership);
+        return mapToResponseDto(workspace, currentUser);
+    }
+
+    @Transactional
+    public WorkspaceResponseDto removeMember(Long workspaceId, Long userId) {
+        User currentUser = securityService.getCurrentUser();
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
+        requireWorkspaceAdmin(workspace, currentUser);
+
+        if (workspace.getOwner().getId().equals(userId)) {
+            throw new IllegalArgumentException("Cannot remove the workspace owner");
+        }
+
+        workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, userId);
+        workspace.getMemberships().removeIf(m -> m.getUser().getId().equals(userId));
+        return mapToResponseDto(workspace, currentUser);
+    }
+
+    @Transactional
+    public WorkspaceResponseDto leaveWorkspace(Long workspaceId) {
+        User currentUser = securityService.getCurrentUser();
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
+
+        if (workspace.getOwner().getId().equals(currentUser.getId())) {
+            throw new IllegalArgumentException("Owner cannot leave; transfer ownership or delete the workspace");
+        }
+
+        workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, currentUser.getId());
+        return mapToResponseDto(workspace, currentUser);
+    }
+
+    /** Resolves the caller's effective role in this workspace (OWNER if owner, else membership role). */
+    @Transactional(readOnly = true)
+    public Role getEffectiveRole(Workspace workspace, User user) {
+        if (workspace.getOwner().getId().equals(user.getId())) {
+            return Role.OWNER;
+        }
+        return workspaceMemberRepository.findByWorkspaceIdAndUserId(workspace.getId(), user.getId())
+                .map(WorkspaceMember::getRole)
+                .orElse(null);
     }
 
     @Transactional
@@ -120,7 +197,7 @@ public class WorkspaceService {
         User currentUser = securityService.getCurrentUser();
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
-        validateWorkspaceOwner(workspace, currentUser);
+        requireWorkspaceOwner(workspace, currentUser);
 
         if (newWorkspaceKey == null || newWorkspaceKey.trim().length() < 16) {
             throw new IllegalArgumentException("Workspace encryption key must be at least 16 characters");
@@ -128,7 +205,7 @@ public class WorkspaceService {
 
         workspace.setWorkspaceEncryptionKey(encryptionService.encryptWorkspaceKey(newWorkspaceKey.trim()));
         Workspace savedWorkspace = workspaceRepository.save(workspace);
-        return mapToResponseDto(savedWorkspace);
+        return mapToResponseDto(savedWorkspace, currentUser);
     }
 
     @Transactional
@@ -136,7 +213,7 @@ public class WorkspaceService {
         User currentUser = securityService.getCurrentUser();
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
-        validateWorkspaceOwner(workspace, currentUser);
+        requireWorkspaceAdmin(workspace, currentUser);
 
         if (newName != null && !newName.trim().isBlank() && !newName.equals(workspace.getName())) {
             if (workspaceRepository.existsByName(newName.trim())) {
@@ -149,34 +226,49 @@ public class WorkspaceService {
         }
 
         Workspace savedWorkspace = workspaceRepository.save(workspace);
-        return mapToResponseDto(savedWorkspace);
+        return mapToResponseDto(savedWorkspace, currentUser);
     }
 
     private void validateWorkspaceAccess(Workspace workspace, User user) {
-        boolean isOwner = workspace.getOwner().getId().equals(user.getId());
-        boolean isMember = workspace.getMembers().stream()
-                .anyMatch(m -> m.getId().equals(user.getId()));
-        if (!isOwner && !isMember) {
+        Role role = getEffectiveRole(workspace, user);
+        if (role == null) {
             throw new RuntimeException("Access denied: You do not have permission to access this workspace");
         }
     }
 
-    private void validateWorkspaceOwner(Workspace workspace, User user) {
+    private void requireWorkspaceOwner(Workspace workspace, User user) {
         if (!workspace.getOwner().getId().equals(user.getId())) {
             throw new RuntimeException("Access denied: Only workspace owner can perform this action");
         }
     }
 
-    private WorkspaceResponseDto mapToResponseDto(Workspace workspace) {
+    private void requireWorkspaceAdmin(Workspace workspace, User user) {
+        Role role = getEffectiveRole(workspace, user);
+        if (role != Role.OWNER && role != Role.ADMIN) {
+            throw new RuntimeException("Access denied: Only workspace owner or admin can perform this action");
+        }
+    }
+
+    private WorkspaceResponseDto mapToResponseDto(Workspace workspace, User currentUser) {
+        Role currentRole = getEffectiveRole(workspace, currentUser);
         return WorkspaceResponseDto.builder()
                 .id(workspace.getId())
                 .name(workspace.getName())
                 .description(workspace.getDescription())
                 .ownerId(workspace.getOwner().getId())
                 .ownerUsername(workspace.getOwner().getUsername())
-                .memberUsernames(workspace.getMembers().stream()
-                        .map(User::getUsername)
+                .memberUsernames(workspace.getMemberships().stream()
+                        .map(m -> m.getUser().getUsername())
                         .collect(Collectors.toSet()))
+                .members(workspace.getMemberships().stream()
+                        .map(m -> WorkspaceMemberDto.builder()
+                                .userId(m.getUser().getId())
+                                .username(m.getUser().getUsername())
+                                .email(m.getUser().getEmail())
+                                .role(m.getRole())
+                                .build())
+                        .collect(Collectors.toSet()))
+                .currentUserRole(currentRole)
                 .hasEncryptionKey(workspace.getWorkspaceEncryptionKey() != null)
                 .createdAt(workspace.getCreatedAt())
                 .updatedAt(workspace.getUpdatedAt())
@@ -188,7 +280,7 @@ public class WorkspaceService {
         User currentUser = securityService.getCurrentUser();
         Workspace workspace = workspaceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + id));
-        validateWorkspaceOwner(workspace, currentUser);
+        requireWorkspaceOwner(workspace, currentUser);
         workspaceRepository.delete(workspace);
     }
 }

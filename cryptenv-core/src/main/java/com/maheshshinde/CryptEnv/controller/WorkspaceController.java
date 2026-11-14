@@ -70,13 +70,16 @@ public class WorkspaceController {
     }
 
     @PostMapping("/{id}/members")
-    @Operation(summary = "Invite a member to workspace")
+    @Operation(summary = "Invite a member to workspace with a scoped role")
     public ResponseEntity<WorkspaceResponseDto> inviteMember(
             @PathVariable Long id,
             @RequestParam String email,
+            @RequestParam(required = false, defaultValue = "DEVELOPER") String role,
             HttpServletRequest request) {
         securityService.checkPermission(Permission.WORKSPACE_MANAGE_MEMBERS);
-        WorkspaceResponseDto workspaceResponse = workspaceService.inviteMember(id, email);
+        com.maheshshinde.CryptEnv.model.Role assignedRole =
+                com.maheshshinde.CryptEnv.model.Role.valueOf(role.toUpperCase());
+        WorkspaceResponseDto workspaceResponse = workspaceService.inviteMember(id, email, assignedRole);
         auditLogService.logEvent(
                 securityService.getCurrentUser(),
                 "WORKSPACE_MEMBER_ADD",
@@ -84,7 +87,67 @@ public class WorkspaceController {
                 id.toString(),
                 true,
                 request,
-                "Invited user: " + email
+                "Invited user: " + email + " as " + assignedRole
+        );
+        return ResponseEntity.ok(workspaceResponse);
+    }
+
+    @PutMapping("/{id}/members/{userId}/role")
+    @Operation(summary = "Change a member's workspace-scoped role")
+    public ResponseEntity<WorkspaceResponseDto> changeMemberRole(
+            @PathVariable Long id,
+            @PathVariable Long userId,
+            @RequestParam String role,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.WORKSPACE_MANAGE_MEMBERS);
+        com.maheshshinde.CryptEnv.model.Role newRole =
+                com.maheshshinde.CryptEnv.model.Role.valueOf(role.toUpperCase());
+        WorkspaceResponseDto workspaceResponse = workspaceService.changeMemberRole(id, userId, newRole);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "WORKSPACE_MEMBER_ROLE_CHANGE",
+                "WORKSPACE",
+                id.toString(),
+                true,
+                request,
+                "userId=" + userId + " role=" + newRole
+        );
+        return ResponseEntity.ok(workspaceResponse);
+    }
+
+    @DeleteMapping("/{id}/members/{userId}")
+    @Operation(summary = "Remove a member from workspace")
+    public ResponseEntity<WorkspaceResponseDto> removeMember(
+            @PathVariable Long id,
+            @PathVariable Long userId,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.WORKSPACE_MANAGE_MEMBERS);
+        WorkspaceResponseDto workspaceResponse = workspaceService.removeMember(id, userId);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "WORKSPACE_MEMBER_REMOVE",
+                "WORKSPACE",
+                id.toString(),
+                true,
+                request,
+                "Removed userId=" + userId
+        );
+        return ResponseEntity.ok(workspaceResponse);
+    }
+
+    @PostMapping("/{id}/leave")
+    @Operation(summary = "Leave a workspace (non-owners)")
+    public ResponseEntity<WorkspaceResponseDto> leaveWorkspace(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        WorkspaceResponseDto workspaceResponse = workspaceService.leaveWorkspace(id);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "WORKSPACE_LEAVE",
+                "WORKSPACE",
+                id.toString(),
+                true,
+                request
         );
         return ResponseEntity.ok(workspaceResponse);
     }

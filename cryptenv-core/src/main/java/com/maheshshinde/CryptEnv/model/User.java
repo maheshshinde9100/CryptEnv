@@ -70,9 +70,9 @@ public class User {
     @Builder.Default
     private Set<Workspace> ownedWorkspaces = new HashSet<>();
 
-    @ManyToMany(mappedBy = "members")
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private Set<Workspace> memberWorkspaces = new HashSet<>();
+    private Set<WorkspaceMember> memberships = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
