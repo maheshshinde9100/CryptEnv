@@ -4,10 +4,9 @@ import com.maheshshinde.CryptEnv.dto.EnvironmentCreateDto;
 import com.maheshshinde.CryptEnv.dto.EnvironmentResponseDto;
 import com.maheshshinde.CryptEnv.exception.ResourceAlreadyExistsException;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
-import com.maheshshinde.CryptEnv.model.Environment;
-import com.maheshshinde.CryptEnv.model.User;
-import com.maheshshinde.CryptEnv.model.Workspace;
+import com.maheshshinde.CryptEnv.model.*;
 import com.maheshshinde.CryptEnv.repository.EnvironmentRepository;
+import com.maheshshinde.CryptEnv.repository.ProjectRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,20 +21,21 @@ public class EnvironmentService {
 
     private final EnvironmentRepository environmentRepository;
     private final WorkspaceRepository workspaceRepository;
+    private final ProjectRepository projectRepository;
+    private final ProjectService projectService;
+    private final WorkspaceService workspaceService;
     private final SecurityService securityService;
 
     private void validateWorkspaceAccess(Workspace workspace, User user) {
-        boolean isOwner = workspace.getOwner().getId().equals(user.getId());
-        boolean isMember = workspace.getMemberships().stream()
-                .anyMatch(m -> m.getUser().getId().equals(user.getId()));
-        if (!isOwner && !isMember) {
+        if (workspaceService.getEffectiveRole(workspace, user) == null) {
             throw new RuntimeException("Access denied: You do not have permission to this workspace");
         }
     }
 
-    private void validateWorkspaceOwner(Workspace workspace, User user) {
-        if (!workspace.getOwner().getId().equals(user.getId())) {
-            throw new RuntimeException("Access denied: Only workspace owner can create or modify environments");
+    private void requireAdmin(Workspace workspace, User user) {
+        Role role = workspaceService.getEffectiveRole(workspace, user);
+        if (role != Role.OWNER && role != Role.ADMIN) {
+            throw new RuntimeException("Access denied: Only workspace owner/admin can create or modify environments");
         }
     }
 
@@ -44,22 +44,40 @@ public class EnvironmentService {
         User currentUser = securityService.getCurrentUser();
         Workspace workspace = workspaceRepository.findById(createDto.getWorkspaceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + createDto.getWorkspaceId()));
-        validateWorkspaceOwner(workspace, currentUser);
+        requireAdmin(workspace, currentUser);
 
-        if (environmentRepository.findByWorkspaceIdAndName(createDto.getWorkspaceId(), createDto.getName()).isPresent()) {
+        Environment.EnvironmentType type = createDto.getName();
+        if (type == Environment.EnvironmentType.CUSTOM
+                && (createDto.getLabel() == null || createDto.getLabel().isBlank())) {
+            throw new IllegalArgumentException("CUSTOM environments require a label");
+        }
+
+        if (type != Environment.EnvironmentType.CUSTOM
+                && environmentRepository.findByWorkspaceIdAndName(createDto.getWorkspaceId(), type).isPresent()) {
             throw new ResourceAlreadyExistsException(
-                    "Environment " + createDto.getName() + " already exists for workspace: " + workspace.getName()
+                    "Environment " + type + " already exists for workspace: " + workspace.getName()
             );
         }
 
+        Project project;
+        if (createDto.getProjectId() != null) {
+            project = projectRepository.findByIdAndWorkspaceId(createDto.getProjectId(), workspace.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        } else {
+            project = projectService.getOrCreateDefault(workspace);
+        }
+
         Environment environment = Environment.builder()
-                .name(createDto.getName())
+                .name(type)
+                .label(createDto.getLabel())
                 .workspace(workspace)
+                .project(project)
                 .isActive(true)
+                .isProtected(Boolean.TRUE.equals(createDto.getIsProtected())
+                        || type == Environment.EnvironmentType.PRODUCTION)
                 .build();
 
-        Environment savedEnvironment = environmentRepository.save(environment);
-        return mapToResponseDto(savedEnvironment);
+        return mapToResponseDto(environmentRepository.save(environment));
     }
 
     @Transactional(readOnly = true)
@@ -84,15 +102,23 @@ public class EnvironmentService {
     }
 
     @Transactional
+    public EnvironmentResponseDto setProtected(Long id, boolean isProtected) {
+        User currentUser = securityService.getCurrentUser();
+        Environment environment = environmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + id));
+        requireAdmin(environment.getWorkspace(), currentUser);
+        environment.setIsProtected(isProtected);
+        return mapToResponseDto(environmentRepository.save(environment));
+    }
+
+    @Transactional
     public EnvironmentResponseDto toggleEnvironmentStatus(Long id) {
         User currentUser = securityService.getCurrentUser();
         Environment environment = environmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + id));
-        validateWorkspaceOwner(environment.getWorkspace(), currentUser);
-
+        requireAdmin(environment.getWorkspace(), currentUser);
         environment.setIsActive(!environment.getIsActive());
-        Environment savedEnvironment = environmentRepository.save(environment);
-        return mapToResponseDto(savedEnvironment);
+        return mapToResponseDto(environmentRepository.save(environment));
     }
 
     @Transactional
@@ -100,7 +126,7 @@ public class EnvironmentService {
         User currentUser = securityService.getCurrentUser();
         Environment environment = environmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + id));
-        validateWorkspaceOwner(environment.getWorkspace(), currentUser);
+        requireAdmin(environment.getWorkspace(), currentUser);
         environmentRepository.delete(environment);
     }
 
@@ -108,9 +134,14 @@ public class EnvironmentService {
         return EnvironmentResponseDto.builder()
                 .id(environment.getId())
                 .name(environment.getName())
+                .label(environment.getLabel())
+                .displayName(environment.displayName())
                 .workspaceId(environment.getWorkspace().getId())
                 .workspaceName(environment.getWorkspace().getName())
+                .projectId(environment.getProject() != null ? environment.getProject().getId() : null)
+                .projectName(environment.getProject() != null ? environment.getProject().getName() : null)
                 .isActive(environment.getIsActive())
+                .isProtected(environment.getIsProtected())
                 .createdAt(environment.getCreatedAt())
                 .updatedAt(environment.getUpdatedAt())
                 .build();
