@@ -7,14 +7,109 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  core:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-    - name: Build with Maven
-      run: mvn -B package --file cryptenv-core/pom.xml
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build and test cryptenv-core
+        run: mvn -B test --file cryptenv-core/pom.xml
+      - name: Dependency vulnerability scan (OWASP)
+        continue-on-error: true
+        run: |
+          mvn -B org.owasp:dependency-check-maven:check \
+            -DfailBuildOnCVSS=11 \
+            -DskipProvidedScope=true \
+            --file cryptenv-core/pom.xml || true
+
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cryptenv-dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: cryptenv-dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  cli:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cryptenv-cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: cryptenv-cli/package-lock.json
+      - run: npm ci
+      - name: Syntax check CLI entrypoints
+        run: node --check bin/cryptenv.js
+
+  node-sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cryptenv-sdk/node
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: cryptenv-sdk/node/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  java-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Test Java SDK
+        run: mvn -B test --file cryptenv-sdk/java/pom.xml
+
+  vscode:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cryptenv-vscode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: cryptenv-vscode/package-lock.json
+      - run: npm ci
+      - name: Run extension smoke tests
+        run: npm test --if-present
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
