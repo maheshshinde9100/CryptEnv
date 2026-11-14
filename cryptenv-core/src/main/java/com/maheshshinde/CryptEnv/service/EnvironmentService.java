@@ -26,8 +26,8 @@ public class EnvironmentService {
 
     private void validateWorkspaceAccess(Workspace workspace, User user) {
         boolean isOwner = workspace.getOwner().getId().equals(user.getId());
-        boolean isMember = workspace.getMembers().stream()
-                .anyMatch(m -> m.getId().equals(user.getId()));
+        boolean isMember = workspace.getMemberships().stream()
+                .anyMatch(m -> m.getUser().getId().equals(user.getId()));
         if (!isOwner && !isMember) {
             throw new RuntimeException("Access denied: You do not have permission to this workspace");
         }

@@ -1,9 +1,12 @@
 package com.maheshshinde.CryptEnv.service;
 
 import com.maheshshinde.CryptEnv.dto.WorkspaceResponseDto;
+import com.maheshshinde.CryptEnv.model.Role;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.model.Workspace;
+import com.maheshshinde.CryptEnv.model.WorkspaceMember;
 import com.maheshshinde.CryptEnv.repository.UserRepository;
+import com.maheshshinde.CryptEnv.repository.WorkspaceMemberRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import com.maheshshinde.CryptEnv.security.EncryptionService;
 import com.maheshshinde.CryptEnv.security.UserPrincipal;
@@ -29,6 +32,7 @@ import static org.mockito.Mockito.*;
 class WorkspaceIsolationTest {
 
     @Mock private WorkspaceRepository workspaceRepository;
+    @Mock private WorkspaceMemberRepository workspaceMemberRepository;
     @Mock private UserRepository userRepository;
     @Mock private EncryptionService encryptionService;
     @Mock private SecurityService securityService;
@@ -51,7 +55,7 @@ class WorkspaceIsolationTest {
 
         aliceOwned = ws(10L, "alice-own", alice, Collections.emptySet());
         bobOwned = ws(20L, "bob-own", bob, Collections.emptySet());
-        sharedWithAlice = ws(21L, "bob-shared", bob, new HashSet<>(List.of(alice)));
+        sharedWithAlice = ws(21L, "bob-shared", bob, Set.of(alice));
     }
 
     @AfterEach
@@ -66,18 +70,27 @@ class WorkspaceIsolationTest {
                 .accountNonExpired(true).accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .ownedWorkspaces(new HashSet<>())
-                .memberWorkspaces(new HashSet<>())
+                .memberships(new HashSet<>())
                 .createdAt(LocalDateTime.now())
                 .build();
     }
 
-    private Workspace ws(Long id, String name, User owner, Set<User> members) {
-        return Workspace.builder()
+    private Workspace ws(Long id, String name, User owner, Set<User> memberUsers) {
+        Workspace workspace = Workspace.builder()
                 .id(id).name(name).description("desc")
-                .owner(owner).members(members)
+                .owner(owner)
+                .memberships(new HashSet<>())
                 .environments(new HashSet<>())
                 .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
                 .build();
+        for (User member : memberUsers) {
+            workspace.getMemberships().add(WorkspaceMember.builder()
+                    .workspace(workspace)
+                    .user(member)
+                    .role(Role.DEVELOPER)
+                    .build());
+        }
+        return workspace;
     }
 
     private void authenticate(User u) {
@@ -92,16 +105,15 @@ class WorkspaceIsolationTest {
         when(securityService.getCurrentUser()).thenReturn(u);
     }
 
-    // ------------------------------------------------------------------
-    // The CRITICAL tests that guarantee user isolation
-    // ------------------------------------------------------------------
-
     @Test
     @DisplayName("getUserWorkspaces returns BOTH owned + member workspaces")
     void aliceSeesOwnedAndMemberWorkspaces() {
         authenticate(alice);
         when(workspaceRepository.findByOwnerId(alice.getId())).thenReturn(List.of(aliceOwned));
-        when(workspaceRepository.findByMembersId(alice.getId())).thenReturn(List.of(sharedWithAlice));
+        when(workspaceRepository.findByMembershipsUserId(alice.getId())).thenReturn(List.of(sharedWithAlice));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(sharedWithAlice.getId(), alice.getId()))
+                .thenReturn(Optional.of(WorkspaceMember.builder()
+                        .workspace(sharedWithAlice).user(alice).role(Role.DEVELOPER).build()));
 
         List<WorkspaceResponseDto> dtos = workspaceService.getUserWorkspaces();
 
@@ -118,21 +130,24 @@ class WorkspaceIsolationTest {
     void malloryNeverSeesBobsWorkspaces() {
         authenticate(mallory);
         when(workspaceRepository.findByOwnerId(mallory.getId())).thenReturn(Collections.emptyList());
-        when(workspaceRepository.findByMembersId(mallory.getId())).thenReturn(Collections.emptyList());
+        when(workspaceRepository.findByMembershipsUserId(mallory.getId())).thenReturn(Collections.emptyList());
 
         List<WorkspaceResponseDto> dtos = workspaceService.getUserWorkspaces();
         assertTrue(dtos.isEmpty());
     }
 
     @Test
-    @DisplayName("Member cannot invite other members — only owner can")
+    @DisplayName("Member cannot invite other members — only owner/admin can")
     void nonOwnerCannotInviteMembers() {
-        authenticate(alice); // Alice is a MEMBER of "bob-shared", NOT the owner
+        authenticate(alice);
         when(workspaceRepository.findById(sharedWithAlice.getId()))
                 .thenReturn(Optional.of(sharedWithAlice));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(sharedWithAlice.getId(), alice.getId()))
+                .thenReturn(Optional.of(WorkspaceMember.builder()
+                        .workspace(sharedWithAlice).user(alice).role(Role.DEVELOPER).build()));
 
         assertThrows(RuntimeException.class,
-                () -> workspaceService.inviteMember(sharedWithAlice.getId(), mallory.getEmail()));
+                () -> workspaceService.inviteMember(sharedWithAlice.getId(), mallory.getEmail(), Role.DEVELOPER));
         verify(workspaceRepository, never()).save(any());
     }
 
@@ -144,9 +159,12 @@ class WorkspaceIsolationTest {
                 .thenReturn(Optional.of(sharedWithAlice));
         when(userRepository.findByEmail(mallory.getEmail()))
                 .thenReturn(Optional.of(mallory));
+        when(workspaceMemberRepository.existsByWorkspaceIdAndUserId(sharedWithAlice.getId(), mallory.getId()))
+                .thenReturn(false);
         when(workspaceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        WorkspaceResponseDto dto = workspaceService.inviteMember(sharedWithAlice.getId(), mallory.getEmail());
+        WorkspaceResponseDto dto = workspaceService.inviteMember(
+                sharedWithAlice.getId(), mallory.getEmail(), Role.VIEWER);
         assertNotNull(dto);
         verify(workspaceRepository, times(1)).save(any());
     }
@@ -157,6 +175,8 @@ class WorkspaceIsolationTest {
         authenticate(mallory);
         when(workspaceRepository.findById(bobOwned.getId()))
                 .thenReturn(Optional.of(bobOwned));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(bobOwned.getId(), mallory.getId()))
+                .thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class,
                 () -> workspaceService.getWorkspaceById(bobOwned.getId()));

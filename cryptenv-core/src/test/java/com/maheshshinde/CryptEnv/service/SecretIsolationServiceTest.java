@@ -100,17 +100,26 @@ class SecretIsolationServiceTest {
                 .accountNonExpired(true).accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .ownedWorkspaces(new HashSet<>())
-                .memberWorkspaces(new HashSet<>())
+                .memberships(new HashSet<>())
                 .createdAt(LocalDateTime.now())
                 .build();
     }
 
-    private Workspace ws(Long id, String name, User owner, Set<User> members) {
-        return Workspace.builder()
-                .id(id).name(name).owner(owner).members(members)
+    private Workspace ws(Long id, String name, User owner, Set<User> memberUsers) {
+        Workspace workspace = Workspace.builder()
+                .id(id).name(name).owner(owner)
+                .memberships(new HashSet<>())
                 .description("desc").environments(new HashSet<>())
                 .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
                 .build();
+        for (User member : memberUsers) {
+            workspace.getMemberships().add(WorkspaceMember.builder()
+                    .workspace(workspace)
+                    .user(member)
+                    .role(Role.DEVELOPER)
+                    .build());
+        }
+        return workspace;
     }
 
     private Environment env(Long id, Workspace ws, Environment.EnvironmentType t) {

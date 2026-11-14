@@ -68,7 +68,7 @@ public class SdkController {
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
             List<Workspace> ownedWorkspaces = workspaceRepository.findByOwnerId(user.getId());
-            List<Workspace> memberWorkspaces = workspaceRepository.findByMembersId(user.getId());
+            List<Workspace> memberWorkspaces = workspaceRepository.findByMembershipsUserId(user.getId());
             java.util.Set<Workspace> allWorkspaces = new java.util.LinkedHashSet<>();
             allWorkspaces.addAll(ownedWorkspaces);
             allWorkspaces.addAll(memberWorkspaces);
@@ -136,8 +136,8 @@ public class SdkController {
             Workspace workspace = workspaceRepository.findById(workspaceId)
                     .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
             boolean isOwner = workspace.getOwner().getId().equals(currentUser.getId());
-            boolean isMember = workspace.getMembers().stream()
-                    .anyMatch(m -> m.getId().equals(currentUser.getId()));
+            boolean isMember = workspace.getMemberships().stream()
+                    .anyMatch(m -> m.getUser().getId().equals(currentUser.getId()));
             if (!isOwner && !isMember) {
                 throw new RuntimeException("Access denied");
             }
@@ -151,7 +151,7 @@ public class SdkController {
                 .map(s -> EncryptedSecretDto.builder()
                         .id(s.getId())
                         .key(s.getKey())
-                        .encryptedValue(s.getEncryptedValue() != null ? s.getEncryptedValue() : s.getValue())
+                        .encryptedValue(s.getValue())
                         .environmentId(s.getEnvironment().getId())
                         .workspaceId(s.getEnvironment().getWorkspace().getId())
                         .description(s.getDescription())
@@ -182,7 +182,7 @@ public class SdkController {
         EncryptedSecretDto dto = EncryptedSecretDto.builder()
                 .id(s.getId())
                 .key(s.getKey())
-                .encryptedValue(s.getEncryptedValue() != null ? s.getEncryptedValue() : s.getValue())
+                .encryptedValue(s.getValue())
                 .environmentId(s.getEnvironment().getId())
                 .workspaceId(s.getEnvironment().getWorkspace().getId())
                 .description(s.getDescription())
@@ -201,8 +201,8 @@ public class SdkController {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
         boolean isOwner = workspace.getOwner().getId().equals(currentUser.getId());
-        boolean isMember = workspace.getMembers().stream()
-                .anyMatch(m -> m.getId().equals(currentUser.getId()));
+        boolean isMember = workspace.getMemberships().stream()
+                .anyMatch(m -> m.getUser().getId().equals(currentUser.getId()));
         if (!isOwner && !isMember) {
             throw new RuntimeException("Access denied to this workspace");
         }
@@ -212,7 +212,7 @@ public class SdkController {
         Map<String, String> map = new HashMap<>();
         for (Secret s : workspaceSecrets) {
             if (Boolean.TRUE.equals(s.getEncrypted())) {
-                String encVal = s.getEncryptedValue() != null ? s.getEncryptedValue() : s.getValue();
+                String encVal = s.getValue();
                 if (encVal != null) {
                     map.put(s.getKey(), encVal);
                 }

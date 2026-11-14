@@ -7,6 +7,7 @@ import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.model.Workspace;
 import com.maheshshinde.CryptEnv.repository.UserRepository;
+import com.maheshshinde.CryptEnv.repository.WorkspaceMemberRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import com.maheshshinde.CryptEnv.security.UserPrincipal;
 import org.junit.jupiter.api.AfterEach;
@@ -33,6 +34,9 @@ class WorkspaceServiceTest {
 
     @Mock
     private WorkspaceRepository workspaceRepository;
+
+    @Mock
+    private WorkspaceMemberRepository workspaceMemberRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -68,7 +72,7 @@ class WorkspaceServiceTest {
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .ownedWorkspaces(new HashSet<>())
-                .memberWorkspaces(new HashSet<>())
+                .memberships(new HashSet<>())
                 .build();
 
         userPrincipal = UserPrincipal.builder()
@@ -87,7 +91,7 @@ class WorkspaceServiceTest {
                 .name("test-workspace")
                 .description("Test workspace")
                 .owner(user)
-                .members(new HashSet<>())
+                .memberships(new HashSet<>())
                 .environments(new HashSet<>())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
