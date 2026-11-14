@@ -163,9 +163,13 @@ class SecretIsolationServiceTest {
                 .thenReturn(ALICE_WORKSPACE_KEY_B64);
         when(workspaceService.getDecryptedWorkspaceKey(bobSharedWithAlice.getId()))
                 .thenReturn(ALICE_WORKSPACE_KEY_B64);
-        when(encryptionService.decryptWithKey(eq("ENC[alice_db_ct]"), anyString()))
+        when(encryptionService.decryptWithKey(eq("ENC[alice_db_ct]"), anyString(), anyString()))
                 .thenReturn("postgresql://alice-db/alice");
-        when(encryptionService.decryptWithKey(eq("ENC[shared_ct]"), anyString()))
+        when(encryptionService.decryptWithKey(eq("ENC[shared_ct]"), anyString(), anyString()))
+                .thenReturn("shared-token-value");
+        lenient().when(encryptionService.decryptWithKey(eq("ENC[alice_db_ct]"), anyString()))
+                .thenReturn("postgresql://alice-db/alice");
+        lenient().when(encryptionService.decryptWithKey(eq("ENC[shared_ct]"), anyString()))
                 .thenReturn("shared-token-value");
 
         List<SecretResponseDto> dtos = secretService.getAllSecretsForCurrentUser();
@@ -196,7 +200,9 @@ class SecretIsolationServiceTest {
                 .thenReturn(List.of(bobSecret));
         when(workspaceService.getDecryptedWorkspaceKey(bobWs.getId()))
                 .thenReturn(ALICE_WORKSPACE_KEY_B64);
-        when(encryptionService.decryptWithKey("ENC[bob_stripe_ct]", ALICE_WORKSPACE_KEY_B64))
+        when(encryptionService.decryptWithKey(eq("ENC[bob_stripe_ct]"), anyString(), anyString()))
+                .thenReturn("sk_live_bob_realkey");
+        lenient().when(encryptionService.decryptWithKey(eq("ENC[bob_stripe_ct]"), anyString()))
                 .thenReturn("sk_live_bob_realkey");
 
         SecretResponseDto dto = secretService.getSecretByKey("STRIPE_KEY");
@@ -222,7 +228,9 @@ class SecretIsolationServiceTest {
                 .thenReturn(List.of(bobSharedSecret));
         when(workspaceService.getDecryptedWorkspaceKey(bobSharedWithAlice.getId()))
                 .thenReturn(ALICE_WORKSPACE_KEY_B64);
-        when(encryptionService.decryptWithKey(eq("ENC[shared_ct]"), anyString()))
+        when(encryptionService.decryptWithKey(eq("ENC[shared_ct]"), anyString(), anyString()))
+                .thenReturn("shared-token-value");
+        lenient().when(encryptionService.decryptWithKey(eq("ENC[shared_ct]"), anyString()))
                 .thenReturn("shared-token-value");
         assertEquals("shared-token-value", secretService.getSecretByKey("API_TOKEN").getValue());
 
@@ -244,7 +252,7 @@ class SecretIsolationServiceTest {
         when(environmentRepository.findById(aliceEnv.getId())).thenReturn(Optional.of(aliceEnv));
         when(workspaceService.getDecryptedWorkspaceKey(aliceWs.getId()))
                 .thenReturn(ALICE_WORKSPACE_KEY_B64);
-        when(encryptionService.encryptWithKey(eq("plaintext-super-secret"), eq(ALICE_WORKSPACE_KEY_B64)))
+        when(encryptionService.encryptWithKey(eq("plaintext-super-secret"), eq(ALICE_WORKSPACE_KEY_B64), anyString()))
                 .thenReturn("ENC[ct-new-key]");
         when(secretRepository.existsByEnvironmentIdAndKey(aliceEnv.getId(), "NEW_KEY"))
                 .thenReturn(false);
@@ -254,7 +262,7 @@ class SecretIsolationServiceTest {
         assertEquals("NEW_KEY", response.getKey());
 
         verify(encryptionService, times(1))
-                .encryptWithKey("plaintext-super-secret", ALICE_WORKSPACE_KEY_B64);
+                .encryptWithKey(eq("plaintext-super-secret"), eq(ALICE_WORKSPACE_KEY_B64), anyString());
         verify(encryptionService, never()).encrypt(anyString());
     }
 
