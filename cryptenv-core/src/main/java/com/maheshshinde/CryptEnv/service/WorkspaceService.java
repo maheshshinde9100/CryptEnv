@@ -283,4 +283,39 @@ public class WorkspaceService {
         requireWorkspaceOwner(workspace, currentUser);
         workspaceRepository.delete(workspace);
     }
+
+    /**
+     * Transfer ownership to an existing member (or any user). Former owner becomes ADMIN member.
+     * Enforces sole-owner invariant: there is always exactly one owner.
+     */
+    @Transactional
+    public WorkspaceResponseDto transferOwnership(Long workspaceId, Long newOwnerUserId) {
+        User currentUser = securityService.getCurrentUser();
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
+        requireWorkspaceOwner(workspace, currentUser);
+
+        User newOwner = userRepository.findById(newOwnerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        User previousOwner = workspace.getOwner();
+        workspace.setOwner(newOwner);
+
+        // Remove new owner from members if present
+        workspace.getMemberships().removeIf(m -> m.getUser().getId().equals(newOwnerUserId));
+        workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, newOwnerUserId);
+
+        // Previous owner becomes ADMIN member (unless same user)
+        if (!previousOwner.getId().equals(newOwnerUserId)) {
+            WorkspaceMember adminMembership = WorkspaceMember.builder()
+                    .workspace(workspace)
+                    .user(previousOwner)
+                    .role(Role.ADMIN)
+                    .build();
+            workspace.getMemberships().add(adminMembership);
+        }
+
+        Workspace saved = workspaceRepository.save(workspace);
+        return mapToResponseDto(saved, currentUser);
+    }
 }

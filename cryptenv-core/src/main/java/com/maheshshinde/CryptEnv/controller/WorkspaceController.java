@@ -208,4 +208,24 @@ public class WorkspaceController {
         );
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/transfer-ownership")
+    @Operation(summary = "Transfer workspace ownership (sole-owner invariant)")
+    public ResponseEntity<WorkspaceResponseDto> transferOwnership(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Long> body,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.WORKSPACE_MANAGE_MEMBERS);
+        WorkspaceResponseDto dto = workspaceService.transferOwnership(id, body.get("newOwnerUserId"));
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "WORKSPACE_OWNERSHIP_TRANSFER",
+                "WORKSPACE",
+                id.toString(),
+                true,
+                request,
+                "newOwnerUserId=" + body.get("newOwnerUserId")
+        );
+        return ResponseEntity.ok(dto);
+    }
 }
