@@ -78,6 +78,8 @@ cryptenv.rate-limit.capacity=${RATE_LIMIT_CAPACITY:120}
 cryptenv.rate-limit.refill-per-minute=${RATE_LIMIT_REFILL:120}
 cryptenv.rate-limit.auth-capacity=${RATE_LIMIT_AUTH_CAPACITY:30}
 cryptenv.rate-limit.auth-refill-per-minute=${RATE_LIMIT_AUTH_REFILL:30}
+# Only trust X-Forwarded-For / X-Real-IP when behind a known reverse proxy
+cryptenv.rate-limit.trust-proxy=${RATE_LIMIT_TRUST_PROXY:false}
 
 # -------- Master encryption key (wraps workspace keys only) --------
 # Generate: openssl rand -base64 32
