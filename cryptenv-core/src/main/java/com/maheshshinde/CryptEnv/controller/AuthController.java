@@ -1,11 +1,14 @@
 package com.maheshshinde.CryptEnv.controller;
 
+import com.maheshshinde.CryptEnv.dto.ForgotPasswordDto;
 import com.maheshshinde.CryptEnv.dto.JwtResponseDto;
+import com.maheshshinde.CryptEnv.dto.ResetPasswordDto;
 import com.maheshshinde.CryptEnv.dto.UserLoginDto;
 import com.maheshshinde.CryptEnv.dto.UserRegistrationDto;
 import com.maheshshinde.CryptEnv.dto.UserResponseDto;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
 import com.maheshshinde.CryptEnv.service.AuthenticationService;
+import com.maheshshinde.CryptEnv.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +26,7 @@ public class AuthController {
 
     private final AuthenticationService authenticationService;
     private final AuditLogService auditLogService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user")
@@ -123,5 +127,43 @@ public class AuthController {
         var currentUser = authenticationService.getCurrentUser();
         UserResponseDto updated = authenticationService.getUserService().generateNewApiKey(currentUser.getId());
         return ResponseEntity.ok(updated);
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Request a password reset token (always returns a generic success message)")
+    public ResponseEntity<java.util.Map<String, String>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordDto dto,
+            HttpServletRequest request) {
+        var response = passwordResetService.forgotPassword(dto);
+        try {
+            auditLogService.logEvent(
+                    authenticationService.getUserByEmail(dto.getEmail()),
+                    "PASSWORD_RESET_REQUESTED",
+                    "USER",
+                    null,
+                    true,
+                    request
+            );
+        } catch (Exception ignored) {
+            // Avoid leaking whether the email exists via audit failures
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset password using a one-time reset token")
+    public ResponseEntity<java.util.Map<String, String>> resetPassword(
+            @Valid @RequestBody ResetPasswordDto dto,
+            HttpServletRequest request) {
+        var response = passwordResetService.resetPassword(dto);
+        auditLogService.logEvent(
+                null,
+                "PASSWORD_RESET_COMPLETED",
+                "USER",
+                null,
+                true,
+                request
+        );
+        return ResponseEntity.ok(response);
     }
 }
