@@ -11,6 +11,8 @@ import com.maheshshinde.CryptEnv.security.JwtTokenProvider;
 import com.maheshshinde.CryptEnv.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,6 +28,7 @@ public class AuthenticationService {
     private final JwtTokenProvider tokenProvider;
     private final UserService userService;
     private final TokenService tokenService;
+    private final AccountLockoutService accountLockoutService;
 
     public UserService getUserService() {
         return userService;
@@ -38,28 +41,43 @@ public class AuthenticationService {
 
     @Transactional
     public JwtResponseDto authenticate(UserLoginDto loginDto) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginDto.getEmail(),
-                        loginDto.getPassword()
-                )
-        );
+        User existing = userRepository.findByEmail(loginDto.getEmail()).orElse(null);
+        accountLockoutService.assertNotLocked(existing);
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-        User user = userRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new InvalidCredentialsException("User not found"));
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginDto.getEmail(),
+                            loginDto.getPassword()
+                    )
+            );
 
-        TokenService.TokenPair pair = tokenService.issueTokenPair(user);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+            User user = userRepository.findById(userPrincipal.getId())
+                    .orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
-        return JwtResponseDto.builder()
-                .token(pair.accessToken())
-                .refreshToken(pair.refreshToken())
-                .expiresIn(tokenProvider.getAccessTokenTtlMs() / 1000)
-                .userId(userPrincipal.getId())
-                .username(userPrincipal.getUsername())
-                .email(userPrincipal.getEmail())
-                .build();
+            accountLockoutService.clearLockout(user.getId());
+
+            TokenService.TokenPair pair = tokenService.issueTokenPair(user);
+
+            return JwtResponseDto.builder()
+                    .token(pair.accessToken())
+                    .refreshToken(pair.refreshToken())
+                    .expiresIn(tokenProvider.getAccessTokenTtlMs() / 1000)
+                    .userId(userPrincipal.getId())
+                    .username(userPrincipal.getUsername())
+                    .email(userPrincipal.getEmail())
+                    .build();
+        } catch (BadCredentialsException ex) {
+            if (existing != null) {
+                accountLockoutService.recordFailedLogin(existing.getId());
+            }
+            throw ex;
+        } catch (LockedException ex) {
+            accountLockoutService.assertNotLocked(existing);
+            throw ex;
+        }
     }
 
     @Transactional

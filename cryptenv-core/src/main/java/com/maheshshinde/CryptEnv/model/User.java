@@ -99,4 +99,11 @@ public class User {
 
     @Column(name = "api_key_expires_at")
     private LocalDateTime apiKeyExpiresAt;
+
+    @Builder.Default
+    @Column(name = "failed_login_attempts", nullable = false)
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
 }
