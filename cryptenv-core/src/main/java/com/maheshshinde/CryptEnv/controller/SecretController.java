@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -42,7 +43,7 @@ public class SecretController {
                 true,
                 request
         );
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdSecret);
+        return noStore(ResponseEntity.status(HttpStatus.CREATED).body(createdSecret));
     }
 
     @GetMapping
@@ -50,7 +51,7 @@ public class SecretController {
     public ResponseEntity<List<SecretResponseDto>> getAllSecrets() {
         securityService.checkPermission(Permission.SECRET_READ);
         List<SecretResponseDto> secrets = secretService.getAllSecretsForCurrentUser();
-        return ResponseEntity.ok(secrets);
+        return noStore(ResponseEntity.ok(secrets));
     }
 
     @GetMapping("/environment/{environmentId}")
@@ -58,7 +59,7 @@ public class SecretController {
     public ResponseEntity<List<SecretResponseDto>> getSecretsByEnvironment(@PathVariable Long environmentId) {
         securityService.checkPermission(Permission.SECRET_READ);
         List<SecretResponseDto> secrets = secretService.getSecretsByEnvironment(environmentId);
-        return ResponseEntity.ok(secrets);
+        return noStore(ResponseEntity.ok(secrets));
     }
 
     @GetMapping("/{key}")
@@ -75,7 +76,14 @@ public class SecretController {
                 true,
                 request
         );
-        return ResponseEntity.ok(secret);
+        return noStore(ResponseEntity.ok(secret));
+    }
+
+    private static <T> ResponseEntity<T> noStore(ResponseEntity<T> response) {
+        return ResponseEntity.status(response.getStatusCode())
+                .headers(response.getHeaders())
+                .cacheControl(CacheControl.noStore().mustRevalidate())
+                .body(response.getBody());
     }
 
     @GetMapping("/environment/{environmentId}/{key}")
@@ -94,7 +102,7 @@ public class SecretController {
                 true,
                 request
         );
-        return ResponseEntity.ok(secret);
+        return noStore(ResponseEntity.ok(secret));
     }
 
     @PutMapping("/environment/{environmentId}/{key}")
@@ -113,7 +121,7 @@ public class SecretController {
                 true,
                 request
         );
-        return ResponseEntity.ok(updatedSecret);
+        return noStore(ResponseEntity.ok(updatedSecret));
     }
 
     @DeleteMapping("/{key}")
