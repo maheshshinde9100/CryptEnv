@@ -7,12 +7,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * Scheduled jobs for secret rotation, expiry, and soft-delete cleanup.
- * Auto-rotation is intentionally disabled until real secret generators exist (§5);
- * the previous placeholder ("rotated_" + timestamp) overwrote live secrets with junk.
+ * Rotation uses {@link SecretValueGenerator} (no placeholder junk values).
  */
 @Service
 @RequiredArgsConstructor
@@ -20,32 +20,56 @@ import java.util.List;
 public class SecretRotationScheduler {
 
     private final SecretService secretService;
+    private final SecretVersionService secretVersionService;
+    private final SecretValueGenerator secretValueGenerator;
 
     @Scheduled(cron = "${secret.rotation.cron:0 0 * * * ?}")
     public void rotateSecrets() {
         log.info("Starting scheduled secret rotation check");
 
         List<Secret> secretsNeedingRotation = secretService.getSecretsNeedingRotation();
-        int skipped = 0;
+        int rotated = 0;
+        int failed = 0;
 
         for (Secret secret : secretsNeedingRotation) {
-            if (Boolean.TRUE.equals(secret.getAutoRotate())) {
-                // Do not overwrite with placeholder values. Re-enable in §5 with real generators.
-                log.warn(
-                        "Skipping auto-rotation for secret '{}' (id={}): generators not implemented yet. "
-                                + "Disable autoRotate or wait for secret generators.",
-                        secret.getKey(),
-                        secret.getId()
-                );
-                skipped++;
+            try {
+                rotateOne(secret);
+                rotated++;
+                log.info("Successfully rotated secret: {}", secret.getKey());
+            } catch (Exception e) {
+                failed++;
+                log.error("Failed to rotate secret: {}", secret.getKey(), e);
             }
         }
 
-        log.info(
-                "Completed scheduled secret rotation check. Candidates={}, skippedUntilGenerators={}",
-                secretsNeedingRotation.size(),
-                skipped
+        log.info("Completed scheduled secret rotation. candidates={} rotated={} failed={}",
+                secretsNeedingRotation.size(), rotated, failed);
+    }
+
+    /**
+     * Public entry so Spring proxy applies {@code @Transactional} (avoids self-invocation).
+     */
+    @Transactional
+    public void rotateOne(Secret secret) {
+        if (!Boolean.TRUE.equals(secret.getAutoRotate())) {
+            log.warn("Secret {} is marked for rotation but auto-rotate is disabled", secret.getKey());
+            return;
+        }
+
+        String newValue = secretValueGenerator.generate(secret);
+
+        secretVersionService.createVersion(
+                secret.getKey(),
+                newValue,
+                "system",
+                "Scheduled rotation (" + secretValueGenerator.resolveType(secret) + ")"
         );
+
+        secret.setLastRotatedAt(LocalDateTime.now());
+        if (secret.getRotationIntervalDays() != null && secret.getRotationIntervalDays() > 0) {
+            secret.setNextRotationAt(LocalDateTime.now().plusDays(secret.getRotationIntervalDays()));
+        }
+        secretService.setExpiration(secret.getKey(), secret.getExpiresAt(), "system");
     }
 
     @Scheduled(cron = "${secret.expiration.check.cron:0 0 * * * ?}")
