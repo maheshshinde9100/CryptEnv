@@ -21,6 +21,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
+    private final com.maheshshinde.CryptEnv.service.TokenService tokenService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -29,7 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
             String apiKey = request.getHeader("X-API-Key");
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt) && !tokenService.isAccessTokenRevoked(jwt)) {
                 Long userId = tokenProvider.getUserIdFromToken(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserById(userId);
                 UsernamePasswordAuthenticationToken authentication =
@@ -37,13 +38,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } else if (StringUtils.hasText(apiKey)) {
-                customUserDetailsService.getUserRepository().findByApiKey(apiKey).ifPresent(user -> {
-                    UserDetails userDetails = customUserDetailsService.loadUserById(user.getId());
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                });
+                String hash = ApiKeyHasher.sha256Hex(apiKey);
+                var userRepo = customUserDetailsService.getUserRepository();
+                userRepo.findByApiKeyHash(hash)
+                        .or(() -> userRepo.findByApiKey(apiKey)) // legacy plaintext during rollout
+                        .ifPresent(user -> {
+                            if (user.getApiKeyExpiresAt() != null
+                                    && user.getApiKeyExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+                                return;
+                            }
+                            UserDetails userDetails = customUserDetailsService.loadUserById(user.getId());
+                            UsernamePasswordAuthenticationToken authentication =
+                                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            SecurityContextHolder.getContext().setAuthentication(authentication);
+                        });
             }
         } catch (Exception ex) {
             logger.error("Could not set user authentication in security context", ex);

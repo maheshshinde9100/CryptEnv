@@ -79,6 +79,19 @@ public class User {
     @Builder.Default
     private Role role = Role.DEVELOPER;
 
-    @Column(name = "api_key", unique = true, length = 255)
+    /** Legacy plaintext column — kept nullable for migration; prefer apiKeyHash. */
+    @Column(name = "api_key", length = 255)
     private String apiKey;
+
+    @Column(name = "api_key_hash", length = 64, unique = true)
+    private String apiKeyHash;
+
+    @Column(name = "api_key_prefix", length = 32)
+    private String apiKeyPrefix;
+
+    @Column(name = "api_key_created_at")
+    private LocalDateTime apiKeyCreatedAt;
+
+    @Column(name = "api_key_expires_at")
+    private LocalDateTime apiKeyExpiresAt;
 }

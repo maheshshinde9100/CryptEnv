@@ -6,10 +6,13 @@ import com.maheshshinde.CryptEnv.exception.ResourceAlreadyExistsException;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.repository.UserRepository;
+import com.maheshshinde.CryptEnv.security.ApiKeyHasher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -28,13 +31,18 @@ public class UserService {
             throw new ResourceAlreadyExistsException("Username already taken: " + registrationDto.getUsername());
         }
 
+        String rawApiKey = ApiKeyHasher.generateRawKey();
+
         User user = User.builder()
                 .email(registrationDto.getEmail())
                 .username(registrationDto.getUsername())
                 .password(passwordEncoder.encode(registrationDto.getPassword()))
                 .firstName(registrationDto.getFirstName())
                 .lastName(registrationDto.getLastName())
-                .apiKey("ce_live_" + java.util.UUID.randomUUID().toString().replace("-", ""))
+                .apiKey(null)
+                .apiKeyHash(ApiKeyHasher.sha256Hex(rawApiKey))
+                .apiKeyPrefix(ApiKeyHasher.prefixOf(rawApiKey))
+                .apiKeyCreatedAt(LocalDateTime.now())
                 .role(com.maheshshinde.CryptEnv.model.Role.OWNER)
                 .enabled(true)
                 .accountNonExpired(true)
@@ -43,37 +51,38 @@ public class UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        return mapToResponseDto(savedUser);
+        return mapToResponseDto(savedUser, rawApiKey);
     }
 
     @Transactional
     public UserResponseDto generateNewApiKey(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
-        user.setApiKey("ce_live_" + java.util.UUID.randomUUID().toString().replace("-", ""));
+        String rawApiKey = ApiKeyHasher.generateRawKey();
+        user.setApiKey(null);
+        user.setApiKeyHash(ApiKeyHasher.sha256Hex(rawApiKey));
+        user.setApiKeyPrefix(ApiKeyHasher.prefixOf(rawApiKey));
+        user.setApiKeyCreatedAt(LocalDateTime.now());
+        user.setApiKeyExpiresAt(null);
         User updated = userRepository.save(user);
-        return mapToResponseDto(updated);
+        return mapToResponseDto(updated, rawApiKey);
     }
 
     @Transactional(readOnly = true)
     public UserResponseDto getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        return mapToResponseDto(user);
+        return mapToResponseDto(user, null);
     }
 
     @Transactional(readOnly = true)
     public UserResponseDto getUserByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
-        return mapToResponseDto(user);
+        return mapToResponseDto(user, null);
     }
 
-    private UserResponseDto mapToResponseDto(User user) {
-        if (user.getApiKey() == null) {
-            user.setApiKey("ce_live_" + java.util.UUID.randomUUID().toString().replace("-", ""));
-            user = userRepository.save(user);
-        }
+    private UserResponseDto mapToResponseDto(User user, String rawApiKeyOnce) {
         return UserResponseDto.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -81,7 +90,10 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .enabled(user.getEnabled())
-                .apiKey(user.getApiKey())
+                .apiKey(rawApiKeyOnce)
+                .apiKeyPrefix(user.getApiKeyPrefix())
+                .apiKeyCreatedAt(user.getApiKeyCreatedAt())
+                .apiKeyExpiresAt(user.getApiKeyExpiresAt())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
