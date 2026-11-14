@@ -98,4 +98,22 @@ public class AuditLogController {
 
         return ResponseEntity.ok(logs);
     }
+
+    @GetMapping("/workspace/{workspaceId}")
+    @Operation(summary = "Get audit logs scoped to a workspace")
+    public ResponseEntity<Page<AuditLog>> getWorkspaceAuditLogs(
+            @PathVariable Long workspaceId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        securityService.checkPermission(Permission.AUDIT_READ);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
+        return ResponseEntity.ok(auditLogService.getWorkspaceAuditLogs(workspaceId, pageable));
+    }
+
+    @GetMapping("/verify-chain")
+    @Operation(summary = "Verify the SHA-256 audit hash chain integrity")
+    public ResponseEntity<java.util.Map<String, Object>> verifyChain() {
+        securityService.checkPermission(Permission.AUDIT_READ);
+        return ResponseEntity.ok(auditLogService.verifyHashChain());
+    }
 }

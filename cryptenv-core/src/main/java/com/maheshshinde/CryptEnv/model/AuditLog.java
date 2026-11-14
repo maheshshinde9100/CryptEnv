@@ -51,6 +51,17 @@ public class AuditLog {
     @Column(columnDefinition = "TEXT")
     private String details;
 
+    /** SHA-256 of this row's canonical fields (tamper-evident chain). */
+    @Column(name = "entry_hash", length = 64)
+    private String entryHash;
+
+    /** Previous row's entry_hash (genesis uses 64 zero hex chars). */
+    @Column(name = "previous_hash", length = 64)
+    private String previousHash;
+
+    @Column(name = "workspace_id")
+    private Long workspaceId;
+
     @CreationTimestamp
     @Column(name = "timestamp", nullable = false, updatable = false)
     private LocalDateTime timestamp;

@@ -10,9 +10,17 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+
+    Optional<AuditLog> findTopByOrderByIdDesc();
+
+    List<AuditLog> findAllByOrderByIdAsc();
+
+    Page<AuditLog> findByWorkspaceIdOrderByTimestampDesc(Long workspaceId, Pageable pageable);
 
     Page<AuditLog> findByUserIdOrderByTimestampDesc(Long userId, Pageable pageable);
 
