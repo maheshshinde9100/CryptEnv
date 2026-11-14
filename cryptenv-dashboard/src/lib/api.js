@@ -108,6 +108,25 @@ export const memberAPI = {
     api.post(`/workspaces/${workspaceId}/members`, null, { params: { email } }),
 }
 
+export const integrationsAPI = {
+  overview: () => api.get('/integrations'),
+  targets: (provider) => api.get(`/integrations/${provider}/targets`),
+  connect: (provider, data) => api.post(`/integrations/${provider}/connect`, data),
+  test: (provider) => api.post(`/integrations/${provider}/test`),
+  disconnect: (provider) => api.delete(`/integrations/${provider}`),
+  sync: (provider, data) => api.post(`/integrations/${provider}/sync`, data),
+  deleteSecret: (provider, data) => api.post(`/integrations/${provider}/delete-secret`, data),
+  jobs: () => api.get('/integrations/jobs'),
+  queue: () => api.get('/integrations/queue'),
+  replay: (id) => api.post(`/integrations/jobs/${id}/replay`),
+  export: (environmentId, format = 'env') =>
+    api.get(`/integrations/export/${environmentId}`, {
+      params: { format },
+      responseType: 'text',
+      transformResponse: (data) => data,
+    }),
+}
+
 export const healthAPI = {
   check: () => api.get('/health'),
 }

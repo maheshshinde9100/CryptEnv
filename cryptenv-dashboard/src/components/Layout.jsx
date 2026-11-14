@@ -23,6 +23,7 @@ import {
   Activity,
   X,
   UserCircle2,
+  Plug,
 } from 'lucide-react'
 
 const navSections = [
@@ -32,6 +33,7 @@ const navSections = [
       { path: '/overview', icon: LayoutDashboard, label: 'Overview' },
       { path: '/workspace', icon: FolderKanban, label: 'Workspaces' },
       { path: '/secrets', icon: Lock, label: 'Secrets' },
+      { path: '/integrations', icon: Plug, label: 'Integrations' },
       { path: '/members', icon: Users, label: 'Members' },
     ],
   },
