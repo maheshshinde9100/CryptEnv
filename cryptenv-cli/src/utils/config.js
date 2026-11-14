@@ -1,30 +1,52 @@
 const fs = require('fs');
 const path = require('path');
 
+const DEFAULT_API_URL = 'https://cryptenv-backend.onrender.com/api';
+
+function configPath() {
+  return path.join(process.cwd(), '.cryptenv.json');
+}
+
+function loadCryptenvJson() {
+  const file = configPath();
+  if (!fs.existsSync(file)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveCryptenvJson(patch) {
+  const current = loadCryptenvJson();
+  const next = { ...current, ...patch };
+  fs.writeFileSync(configPath(), JSON.stringify(next, null, 2) + '\n');
+  return next;
+}
+
 function getApiUrl() {
-  // 1. Check environment variable first (highest priority)
   if (process.env.CRYPTENV_API_URL) {
     return process.env.CRYPTENV_API_URL;
   }
+  const config = loadCryptenvJson();
+  if (config.apiUrl) return config.apiUrl;
+  return DEFAULT_API_URL;
+}
 
-  // 2. Check local .cryptenv.json in the current working directory
-  const configPath = path.join(process.cwd(), '.cryptenv.json');
-  if (fs.existsSync(configPath)) {
-    try {
-      const configData = fs.readFileSync(configPath, 'utf8');
-      const config = JSON.parse(configData);
-      if (config.apiUrl) {
-        return config.apiUrl;
-      }
-    } catch (err) {
-      // Ignore parse errors, fallback to default
-    }
-  }
-
-  // 3. Fallback to default production URL
-  return 'https://cryptenv-backend.onrender.com/api';
+function resolveContext(opts = {}) {
+  const config = loadCryptenvJson();
+  return {
+    workspaceId: opts.workspace || process.env.CRYPTENV_WORKSPACE || config.workspaceId || null,
+    environmentId: opts.env || opts.environment || process.env.CRYPTENV_ENV || config.environmentId || null,
+    json: Boolean(opts.json),
+  };
 }
 
 module.exports = {
-  getApiUrl
+  DEFAULT_API_URL,
+  configPath,
+  getApiUrl,
+  loadCryptenvJson,
+  saveCryptenvJson,
+  resolveContext,
 };

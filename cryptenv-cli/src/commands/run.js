@@ -2,39 +2,35 @@ const { spawn } = require('child_process');
 const axios = require('axios');
 const chalk = require('chalk');
 const ora = require('ora');
-const { getAuthToken } = require('./auth');
-const config = require('../utils/config');
+const { getAuthHeaders } = require('./auth');
+const { getApiUrl, resolveContext } = require('../utils/config');
 
-async function run(commandArgs) {
+async function run(commandArgs, opts = {}) {
   try {
-    let token = await getAuthToken();
-    const apiKey = process.env.CRYPTENV_API_KEY;
-
-    if (!token && !apiKey) {
-      console.error(chalk.red('Not authenticated. Please run: cryptenv login OR set CRYPTENV_API_KEY environment variable.'));
+    const headers = await getAuthHeaders();
+    if (!headers) {
+      console.error(chalk.red('Not authenticated. Run: cryptenv login OR set CRYPTENV_API_KEY'));
       process.exit(1);
     }
 
-    const spinner = ora('Fetching and decrypting secrets...').start();
-    const apiUrl = config.getApiUrl();
+    const ctx = resolveContext(opts);
+    const spinner = ora('Fetching secrets...').start();
+    const apiUrl = getApiUrl();
 
     try {
-      // Fetch secrets from API
-      const headers = token ? { Authorization: `Bearer ${token}` } : { 'X-API-Key': apiKey };
-      const response = await axios.get(`${apiUrl}/secrets`, { headers });
+      const url = ctx.environmentId
+        ? `${apiUrl}/secrets/environment/${ctx.environmentId}`
+        : `${apiUrl}/secrets`;
+      const response = await axios.get(url, { headers });
 
-      spinner.succeed(chalk.green('Secrets fetched successfully'));
+      spinner.succeed(chalk.green(`Fetched ${response.data.length} secrets`));
 
-      // Convert secrets to environment variables
       const envVars = {};
-      response.data.forEach(secret => {
+      response.data.forEach((secret) => {
         envVars[secret.key] = secret.value;
       });
 
-      // Merge with existing environment variables
       const mergedEnv = { ...process.env, ...envVars };
-
-      // Execute the command with injected environment variables
       const [cmd, ...args] = commandArgs;
 
       if (!cmd) {
@@ -47,7 +43,7 @@ async function run(commandArgs) {
       const child = spawn(cmd, args, {
         env: mergedEnv,
         stdio: 'inherit',
-        shell: true
+        shell: true,
       });
 
       child.on('error', (error) => {
@@ -55,16 +51,13 @@ async function run(commandArgs) {
         process.exit(1);
       });
 
-      child.on('exit', (code) => {
-        process.exit(code);
-      });
-
+      child.on('exit', (code) => process.exit(code ?? 1));
     } catch (error) {
       spinner.fail(chalk.red('Failed to fetch secrets'));
       if (error.response) {
         console.error(chalk.red(error.response.data.message || 'API error'));
       } else {
-        console.error(chalk.red('Connection error'));
+        console.error(chalk.red(error.message || 'Connection error'));
       }
       process.exit(1);
     }
