@@ -68,4 +68,8 @@ public class SecretVersion {
 
     @Column(name = "metadata", columnDefinition = "TEXT")
     private String metadata;
+
+    /** SHA-256 of plaintext (never stores plaintext). Used for drift detection. */
+    @Column(name = "content_fingerprint", length = 64)
+    private String contentFingerprint;
 }

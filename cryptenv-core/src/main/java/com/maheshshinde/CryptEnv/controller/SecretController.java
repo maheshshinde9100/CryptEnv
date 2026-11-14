@@ -5,6 +5,7 @@ import com.maheshshinde.CryptEnv.dto.SecretResponseDto;
 import com.maheshshinde.CryptEnv.dto.SecretUpdateDto;
 import com.maheshshinde.CryptEnv.model.Permission;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
+import com.maheshshinde.CryptEnv.service.SecretImportExportService;
 import com.maheshshinde.CryptEnv.service.SecretService;
 import com.maheshshinde.CryptEnv.service.SecurityService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/secrets")
@@ -26,6 +28,7 @@ import java.util.List;
 public class SecretController {
 
     private final SecretService secretService;
+    private final SecretImportExportService secretImportExportService;
     private final AuditLogService auditLogService;
     private final SecurityService securityService;
 
@@ -157,5 +160,46 @@ public class SecretController {
                 request
         );
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/import")
+    @Operation(summary = "Import secrets from ENV, JSON, or YAML")
+    public ResponseEntity<Map<String, Object>> importSecrets(
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.SECRET_WRITE);
+        Long environmentId = Long.valueOf(body.get("environmentId"));
+        Map<String, Object> result = secretImportExportService.importSecrets(
+                environmentId, body.get("format"), body.get("content"));
+        auditLogService.logEvent(securityService.getCurrentUser(), "SECRET_IMPORT", "ENVIRONMENT",
+                environmentId.toString(), true, request);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/export")
+    @Operation(summary = "Export secrets as ENV, JSON, or YAML")
+    public ResponseEntity<String> exportSecrets(
+            @RequestParam Long environmentId,
+            @RequestParam(defaultValue = "ENV") String format) {
+        securityService.checkPermission(Permission.SECRET_READ);
+        String body = secretImportExportService.exportSecrets(environmentId, format);
+        return noStore(ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"secrets." + format.toLowerCase() + "\"")
+                .body(body));
+    }
+
+    @PostMapping("/bulk")
+    @Operation(summary = "Bulk create/update secrets")
+    public ResponseEntity<Map<String, Object>> bulk(
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.SECRET_WRITE);
+        Long environmentId = Long.valueOf(body.get("environmentId").toString());
+        @SuppressWarnings("unchecked")
+        List<Map<String, String>> items = (List<Map<String, String>>) body.get("secrets");
+        Map<String, Object> result = secretImportExportService.bulkUpsert(environmentId, items);
+        auditLogService.logEvent(securityService.getCurrentUser(), "SECRET_BULK", "ENVIRONMENT",
+                environmentId.toString(), true, request);
+        return ResponseEntity.ok(result);
     }
 }

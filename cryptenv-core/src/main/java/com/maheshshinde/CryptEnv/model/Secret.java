@@ -88,6 +88,16 @@ public class Secret {
     @Transient
     private String encryptedValue;
 
+    @Column(name = "content_fingerprint", length = 64)
+    private String contentFingerprint;
+
+    @Column(length = 500)
+    private String tags;
+
+    @Column(name = "secret_type", length = 50)
+    @Builder.Default
+    private String secretType = "TEXT";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
