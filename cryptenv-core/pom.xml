@@ -94,6 +94,14 @@
 			<version>8.10.1</version>
 		</dependency>
 
+		<!-- BouncyCastle: X25519 + Salsa20/Poly1305 primitives for GitHub Actions
+		     secret sealed-box encryption (crypto_box_seal) -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>1.78.1</version>
+		</dependency>
+
 		<!-- Lombok -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>

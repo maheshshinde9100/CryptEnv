@@ -278,6 +278,20 @@ public class EncryptionService {
         return decryptWithKey(encryptedWorkspaceKey, masterKey);
     }
 
+    /**
+     * Encrypt an arbitrary payload under the platform master key (not a workspace key).
+     * Used for provider credentials and queued sync payloads that must be readable by the
+     * background worker without a user security context.
+     */
+    public String encryptWithMasterKey(String plaintext) {
+        return encryptWithKey(plaintext, masterKey);
+    }
+
+    /** Decrypt a payload produced by {@link #encryptWithMasterKey(String)}. */
+    public String decryptWithMasterKey(String ciphertext) {
+        return decryptWithKey(ciphertext, masterKey);
+    }
+
     /** @deprecated Prefer encryptWorkspaceKey / encryptWithKey */
     @Deprecated
     public String encrypt(String plaintext) {
