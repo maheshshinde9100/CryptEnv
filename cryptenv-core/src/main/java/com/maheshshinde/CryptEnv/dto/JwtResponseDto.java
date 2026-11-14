@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 public class JwtResponseDto {
 
     private String token;
+    private String refreshToken;
+    /** Access token lifetime in seconds. */
+    private Long expiresIn;
     private String type = "Bearer";
     private Long userId;
     private String username;

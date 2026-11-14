@@ -73,21 +73,39 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/refresh")
+    @Operation(summary = "Rotate refresh token and issue a new access token")
+    public ResponseEntity<JwtResponseDto> refresh(@RequestBody java.util.Map<String, String> body) {
+        String refreshToken = body.get("refreshToken");
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(authenticationService.refresh(refreshToken));
+    }
+
     @PostMapping("/logout")
-    @Operation(summary = "Logout user")
-    public ResponseEntity<Void> logout(HttpServletRequest request) {
+    @Operation(summary = "Logout user — revokes current access token; optional sign-out everywhere")
+    public ResponseEntity<Void> logout(
+            HttpServletRequest request,
+            @RequestParam(required = false, defaultValue = "false") boolean everywhere) {
+        String bearer = request.getHeader("Authorization");
+        String accessToken = null;
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            accessToken = bearer.substring(7);
+        }
         try {
             var user = authenticationService.getCurrentUser();
+            authenticationService.logout(accessToken, everywhere);
             auditLogService.logEvent(
                     authenticationService.getUserByEmail(user.getEmail()),
-                    "LOGOUT",
+                    everywhere ? "LOGOUT_EVERYWHERE" : "LOGOUT",
                     "USER",
                     user.getId().toString(),
                     true,
                     request
             );
         } catch (Exception e) {
-            // Log logout even if user is not found
+            authenticationService.logout(accessToken, everywhere);
         }
         return ResponseEntity.ok().build();
     }

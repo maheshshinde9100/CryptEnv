@@ -14,7 +14,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,9 +23,9 @@ public class AuthenticationService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final UserService userService;
+    private final TokenService tokenService;
 
     public UserService getUserService() {
         return userService;
@@ -47,15 +46,45 @@ public class AuthenticationService {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String token = tokenProvider.generateToken(authentication);
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        User user = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new InvalidCredentialsException("User not found"));
+
+        TokenService.TokenPair pair = tokenService.issueTokenPair(user);
 
         return JwtResponseDto.builder()
-                .token(token)
+                .token(pair.accessToken())
+                .refreshToken(pair.refreshToken())
+                .expiresIn(tokenProvider.getAccessTokenTtlMs() / 1000)
                 .userId(userPrincipal.getId())
                 .username(userPrincipal.getUsername())
                 .email(userPrincipal.getEmail())
                 .build();
+    }
+
+    @Transactional
+    public JwtResponseDto refresh(String refreshToken) {
+        TokenService.TokenPair pair = tokenService.rotateRefreshToken(refreshToken);
+        Long userId = tokenProvider.getUserIdFromToken(pair.accessToken());
+        User user = tokenService.requireUser(userId);
+        return JwtResponseDto.builder()
+                .token(pair.accessToken())
+                .refreshToken(pair.refreshToken())
+                .expiresIn(tokenProvider.getAccessTokenTtlMs() / 1000)
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .build();
+    }
+
+    @Transactional
+    public void logout(String accessToken, boolean everywhere) {
+        if (accessToken != null && !accessToken.isBlank()) {
+            tokenService.revokeAccessToken(accessToken);
+            if (everywhere && tokenProvider.validateToken(accessToken)) {
+                tokenService.revokeAllSessions(tokenProvider.getUserIdFromToken(accessToken));
+            }
+        }
     }
 
     @Transactional(readOnly = true)

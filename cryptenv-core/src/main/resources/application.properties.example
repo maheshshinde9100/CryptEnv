@@ -70,7 +70,10 @@ spring.flyway.out-of-order=false
 # -------- Security & JWT --------
 # Generate: openssl rand -hex 32
 jwt.secret=${JWT_SECRET}
-jwt.expiration=${JWT_EXPIRATION:86400000}
+# Access token TTL (default 15 minutes)
+jwt.expiration=${JWT_EXPIRATION:900000}
+# Refresh token TTL (default 7 days)
+jwt.refresh-expiration-ms=${JWT_REFRESH_EXPIRATION:604800000}
 
 # -------- Rate limiting (per client IP) --------
 cryptenv.rate-limit.enabled=${RATE_LIMIT_ENABLED:true}
@@ -85,6 +88,8 @@ cryptenv.rate-limit.trust-proxy=${RATE_LIMIT_TRUST_PROXY:false}
 # Generate: openssl rand -base64 32
 cryptenv.master-key=${MASTER_ENCRYPTION_KEY}
 encryption.master.key=${MASTER_ENCRYPTION_KEY}
+# Set true to write new secrets with PBKDF2 v2 ciphertext (decrypt still accepts v1)
+cryptenv.encryption.use-pbkdf2=${CRYPTENV_USE_PBKDF2:false}
 
 # -------- Swagger / OpenAPI --------
 springdoc.api-docs.path=/api-docs
