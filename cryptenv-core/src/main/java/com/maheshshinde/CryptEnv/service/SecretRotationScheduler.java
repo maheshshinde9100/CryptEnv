@@ -7,123 +7,77 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Scheduled jobs for secret rotation, expiry, and soft-delete cleanup.
+ * Auto-rotation is intentionally disabled until real secret generators exist (§5);
+ * the previous placeholder ("rotated_" + timestamp) overwrote live secrets with junk.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SecretRotationScheduler {
 
     private final SecretService secretService;
-    private final SecretVersionService secretVersionService;
-    private final AuditLogService auditLogService;
 
-    @Scheduled(cron = "${secret.rotation.cron:0 0 * * * ?}") // Run every hour by default
-    @Transactional
+    @Scheduled(cron = "${secret.rotation.cron:0 0 * * * ?}")
     public void rotateSecrets() {
         log.info("Starting scheduled secret rotation check");
-        
+
         List<Secret> secretsNeedingRotation = secretService.getSecretsNeedingRotation();
-        
+        int skipped = 0;
+
         for (Secret secret : secretsNeedingRotation) {
-            try {
-                rotateSecret(secret);
-                log.info("Successfully rotated secret: {}", secret.getKey());
-            } catch (Exception e) {
-                log.error("Failed to rotate secret: {}", secret.getKey(), e);
+            if (Boolean.TRUE.equals(secret.getAutoRotate())) {
+                // Do not overwrite with placeholder values. Re-enable in §5 with real generators.
+                log.warn(
+                        "Skipping auto-rotation for secret '{}' (id={}): generators not implemented yet. "
+                                + "Disable autoRotate or wait for secret generators.",
+                        secret.getKey(),
+                        secret.getId()
+                );
+                skipped++;
             }
         }
-        
-        log.info("Completed scheduled secret rotation check. Rotated {} secrets", secretsNeedingRotation.size());
+
+        log.info(
+                "Completed scheduled secret rotation check. Candidates={}, skippedUntilGenerators={}",
+                secretsNeedingRotation.size(),
+                skipped
+        );
     }
 
-    @Scheduled(cron = "${secret.expiration.check.cron:0 0 * * * ?}") // Run every hour by default
+    @Scheduled(cron = "${secret.expiration.check.cron:0 0 * * * ?}")
     @Transactional
     public void checkExpiredSecrets() {
         log.info("Starting expired secret check");
-        
+
         List<Secret> expiredSecrets = secretService.getExpiredSecrets();
-        
+
         for (Secret secret : expiredSecrets) {
             try {
-                handleExpiredSecret(secret);
-                log.info("Handled expired secret: {}", secret.getKey());
+                secretService.deactivateSecret(secret.getKey(), "system");
+                log.warn("Deactivated expired secret: {}, expired at: {}", secret.getKey(), secret.getExpiresAt());
             } catch (Exception e) {
                 log.error("Failed to handle expired secret: {}", secret.getKey(), e);
             }
         }
-        
+
         log.info("Completed expired secret check. Handled {} secrets", expiredSecrets.size());
     }
 
-    @Scheduled(cron = "${secret.cleanup.cron:0 0 2 * * ?}") // Run daily at 2 AM
+    @Scheduled(cron = "${secret.cleanup.cron:0 0 2 * * ?}")
     @Transactional
     public void cleanupOldSecrets() {
         log.info("Starting cleanup of old deleted secrets");
-        
-        int retentionDays = 90; // Default retention period
+
+        int retentionDays = 90;
         try {
             secretService.cleanupSoftDeletedSecrets(retentionDays);
             log.info("Completed cleanup of soft-deleted secrets older than {} days", retentionDays);
         } catch (Exception e) {
             log.error("Failed to cleanup old secrets", e);
         }
-    }
-
-    @Transactional
-    protected void rotateSecret(Secret secret) {
-        if (!secret.getAutoRotate()) {
-            log.warn("Secret {} is marked for rotation but auto-rotate is disabled", secret.getKey());
-            return;
-        }
-
-        // Generate new value (in production, this would integrate with secret providers)
-        String newValue = generateNewSecretValue(secret);
-        
-        // Create new version
-        secretVersionService.createVersion(
-                secret.getKey(),
-                newValue,
-                "system",
-                "Scheduled rotation"
-        );
-        
-        // Update secret
-        secret.setLastRotatedAt(LocalDateTime.now());
-        
-        // Schedule next rotation
-        if (secret.getRotationIntervalDays() != null && secret.getRotationIntervalDays() > 0) {
-            LocalDateTime nextRotation = LocalDateTime.now().plusDays(secret.getRotationIntervalDays());
-            secret.setNextRotationAt(nextRotation);
-        }
-        
-        secretService.setExpiration(secret.getKey(), secret.getExpiresAt(), "system");
-        
-        log.info("Rotated secret: {}, next rotation at: {}", secret.getKey(), secret.getNextRotationAt());
-    }
-
-    @Transactional
-    protected void handleExpiredSecret(Secret secret) {
-        // Deactivate expired secret
-        secretService.deactivateSecret(secret.getKey(), "system");
-        
-        log.warn("Deactivated expired secret: {}, expired at: {}", secret.getKey(), secret.getExpiresAt());
-        
-        // In production, you might want to:
-        // - Send notifications to secret owners
-        // - Rotate the secret automatically
-        // - Create alerts for monitoring
-    }
-
-    protected String generateNewSecretValue(Secret secret) {
-        // In production, integrate with secret providers like:
-        // - AWS Secrets Manager
-        // - HashiCorp Vault
-        // - Azure Key Vault
-        // - Custom secret generation logic
-        
-        // For now, return a placeholder
-        return "rotated_" + System.currentTimeMillis();
     }
 }
