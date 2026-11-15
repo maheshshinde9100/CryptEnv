@@ -108,6 +108,10 @@ cryptenv.webhooks.initial-delay-ms=${CRYPTENV_WEBHOOKS_INITIAL_DELAY_MS:18000}
 cryptenv.notifications.enabled=${CRYPTENV_NOTIFICATIONS_ENABLED:true}
 cryptenv.notifications.from=${CRYPTENV_NOTIFICATIONS_FROM:no-reply@cryptenv.local}
 
+# -------- Automation rules (ON event WHERE condition DO action) --------
+# Each rule is capped at 3 fires per rolling 60s window to break event cascades.
+cryptenv.automations.enabled=${CRYPTENV_AUTOMATIONS_ENABLED:true}
+
 # -------- Email (SMTP) --------
 # The JavaMailSender bean is created ONLY when spring.mail.host is set; otherwise the email
 # channel is skipped and the deployment still boots. Leave the block commented out to disable it.

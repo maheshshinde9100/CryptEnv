@@ -25,6 +25,7 @@ public class EventDispatcher {
     private final EventService eventService;
     private final WebhookService webhookService;
     private final NotificationService notificationService;
+    private final AutomationService automationService;
 
     @Scheduled(
             fixedDelayString = "${cryptenv.events.poll-ms:10000}",
@@ -35,6 +36,7 @@ public class EventDispatcher {
             try {
                 webhookService.fanOut(event);
                 notificationService.record(event);
+                automationService.evaluate(event);
                 eventService.markProcessed(event.getId());
             } catch (Exception e) {
                 log.warn("Failed to dispatch event {}: {}", event.getId(), e.getMessage());
