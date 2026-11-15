@@ -18,11 +18,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HexFormat;
 
 /**
  * AES-256-GCM encryption. Workspace secrets are encrypted with the user workspace key.
@@ -268,6 +270,20 @@ public class EncryptionService {
     /** Builds AAD binding string: workspaceId:environmentId:secretKey:version */
     public static String aadFor(Long workspaceId, Long environmentId, String secretKey, int version) {
         return workspaceId + ":" + environmentId + ":" + secretKey + ":" + version;
+    }
+
+    /**
+     * SHA-256 hex fingerprint of a plaintext value. Never reversible; used for drift detection
+     * and integrity checks without exposing the plaintext.
+     */
+    public static String fingerprint(String plaintext) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(plaintext.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new EncryptionException("SHA-256 unavailable", e);
+        }
     }
 
     public String encryptWorkspaceKey(String userProvidedWorkspaceKey) {

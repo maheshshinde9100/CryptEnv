@@ -6,12 +6,11 @@ import com.maheshshinde.CryptEnv.dto.SecretUpdateDto;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
 import com.maheshshinde.CryptEnv.model.Secret;
 import com.maheshshinde.CryptEnv.repository.SecretRepository;
+import com.maheshshinde.CryptEnv.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -85,13 +84,7 @@ public class SecretImportExportService {
     }
 
     public static String fingerprint(String plaintext) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(plaintext.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+        return EncryptionService.fingerprint(plaintext);
     }
 
     private Map<String, String> parse(String format, String content) {

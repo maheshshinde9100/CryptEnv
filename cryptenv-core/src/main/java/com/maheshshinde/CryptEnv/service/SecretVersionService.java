@@ -100,6 +100,7 @@ public class SecretVersionService {
                 .isActive(true)
                 .rotationReason(reason)
                 .rotatedByEmail(rotatedByEmail)
+                .contentFingerprint(EncryptionService.fingerprint(value))
                 .createdAt(LocalDateTime.now())
                 .build();
 

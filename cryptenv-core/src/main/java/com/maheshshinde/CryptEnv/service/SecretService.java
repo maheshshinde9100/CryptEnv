@@ -132,6 +132,7 @@ public class SecretService {
                 .encrypted(true)
                 .version(version)
                 .currentVersion(version)
+                .contentFingerprint(EncryptionService.fingerprint(createDto.getValue()))
                 .build();
 
         Secret savedSecret = secretRepository.save(secret);
@@ -224,6 +225,7 @@ public class SecretService {
         existingSecret.setVersion(nextVersion);
         existingSecret.setCurrentVersion(nextVersion);
         existingSecret.setEncrypted(true);
+        existingSecret.setContentFingerprint(EncryptionService.fingerprint(newValue));
 
         Secret savedSecret = secretRepository.save(existingSecret);
         return mapToResponseDto(savedSecret, newValue);

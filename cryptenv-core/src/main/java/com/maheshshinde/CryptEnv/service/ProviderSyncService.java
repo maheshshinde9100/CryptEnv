@@ -6,6 +6,7 @@ import com.maheshshinde.CryptEnv.dto.SecretResponseDto;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
 import com.maheshshinde.CryptEnv.model.ProviderIntegration;
 import com.maheshshinde.CryptEnv.model.ProviderSyncJob;
+import com.maheshshinde.CryptEnv.model.ProviderSyncState;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.provider.ProviderCredentials;
 import com.maheshshinde.CryptEnv.provider.ProviderException;
@@ -14,6 +15,7 @@ import com.maheshshinde.CryptEnv.provider.ProviderTarget;
 import com.maheshshinde.CryptEnv.provider.SecretProvider;
 import com.maheshshinde.CryptEnv.repository.ProviderIntegrationRepository;
 import com.maheshshinde.CryptEnv.repository.ProviderSyncJobRepository;
+import com.maheshshinde.CryptEnv.repository.ProviderSyncStateRepository;
 import com.maheshshinde.CryptEnv.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +46,7 @@ public class ProviderSyncService {
 
     private final ProviderIntegrationRepository integrationRepository;
     private final ProviderSyncJobRepository jobRepository;
+    private final ProviderSyncStateRepository syncStateRepository;
     private final ProviderRegistry providerRegistry;
     private final EncryptionService encryptionService;
     private final SecurityService securityService;
@@ -296,12 +299,15 @@ public class ProviderSyncService {
 
             if (job.getOperation() == ProviderSyncJob.Operation.DELETE) {
                 provider.deleteSecret(credentials, job.getTarget(), job.getSecretKey());
+                syncStateRepository.deleteByIntegrationIdAndTargetAndSecretKey(
+                        job.getIntegration().getId(), job.getTarget(), job.getSecretKey());
                 results.add(result(job.getSecretKey(), true, null));
             } else {
                 Map<String, String> payload = readPayload(job.getPayloadEncrypted());
                 for (Map.Entry<String, String> entry : payload.entrySet()) {
                     try {
                         provider.pushSecret(credentials, job.getTarget(), entry.getKey(), entry.getValue());
+                        recordSyncState(job, entry.getKey(), entry.getValue());
                         results.add(result(entry.getKey(), true, null));
                     } catch (Exception e) {
                         results.add(result(entry.getKey(), false, truncate(e.getMessage())));
@@ -378,6 +384,25 @@ public class ProviderSyncService {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** Upserts the fingerprint of a value just pushed, so drift detection can compare later. */
+    private void recordSyncState(ProviderSyncJob job, String secretKey, String value) {
+        ProviderIntegration integration = job.getIntegration();
+        ProviderSyncState state = syncStateRepository
+                .findByIntegrationIdAndTargetAndSecretKey(integration.getId(), job.getTarget(), secretKey)
+                .orElseGet(() -> ProviderSyncState.builder()
+                        .integration(integration)
+                        .user(job.getUser())
+                        .provider(job.getProvider())
+                        .target(job.getTarget())
+                        .secretKey(secretKey)
+                        .build());
+        state.setEnvironmentId(job.getEnvironmentId());
+        state.setLastFingerprint(EncryptionService.fingerprint(value));
+        state.setLastSyncedAt(LocalDateTime.now());
+        state.setLastStatus("SUCCESS");
+        syncStateRepository.save(state);
+    }
 
     private ProviderIntegration ownedIntegration(String providerId) {
         User user = securityService.getCurrentUser();
