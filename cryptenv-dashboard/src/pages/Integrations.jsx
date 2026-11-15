@@ -18,6 +18,9 @@ import {
 
 const providerMeta = {
   github: { icon: Github, hint: 'Personal access token with repo + actions scope' },
+  gitlab: { icon: Code2, hint: 'Personal, project, or group access token with API scope' },
+  'gitlab-self-managed': { icon: Server, hint: 'Self-managed GitLab access token with API scope' },
+  bitbucket: { icon: Code2, hint: 'Workspace or repository token with pipeline:variable scope' },
   vercel: { icon: Triangle, hint: 'Vercel access token' },
   cloudflare: { icon: Cloud, hint: 'Cloudflare API token with Workers/Pages edit' },
   kubernetes: { icon: Boxes, hint: 'Kubernetes bearer token or service-account token' },
@@ -25,6 +28,9 @@ const providerMeta = {
 
 const providerConfigFields = {
   github: [],
+  gitlab: [{ key: 'apiUrl', label: 'GitLab API URL', optional: true, placeholder: 'https://gitlab.com' }],
+  'gitlab-self-managed': [{ key: 'apiUrl', label: 'GitLab instance URL', required: true, placeholder: 'https://gitlab.example.com' }],
+  bitbucket: [],
   vercel: [{ key: 'teamId', label: 'Team ID', optional: true }],
   cloudflare: [{ key: 'accountId', label: 'Account ID', required: true }],
   kubernetes: [
