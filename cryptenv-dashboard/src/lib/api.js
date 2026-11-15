@@ -127,6 +127,21 @@ export const integrationsAPI = {
     }),
 }
 
+export const driftAPI = {
+  scan: (environmentId) => api.post('/drift/scan', null, { params: { environmentId } }),
+  scans: () => api.get('/drift/scans'),
+  scanDetail: (id) => api.get(`/drift/scans/${id}`),
+  findings: (environmentId) =>
+    api.get('/drift/findings', { params: environmentId ? { environmentId } : undefined }),
+  remediate: (id) => api.post(`/drift/scans/${id}/remediate`),
+  report: (id, format = 'json') =>
+    api.get(`/drift/scans/${id}/report`, {
+      params: { format },
+      responseType: 'text',
+      transformResponse: (data) => data,
+    }),
+}
+
 export const healthAPI = {
   check: () => api.get('/health'),
 }

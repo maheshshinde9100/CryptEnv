@@ -13,6 +13,7 @@ import { Members } from './pages/Members'
 import { AuditLogs } from './pages/AuditLogs'
 import { SecretRotation } from './pages/SecretRotation'
 import { Integrations } from './pages/Integrations'
+import { Drift } from './pages/Drift'
 import { About } from './pages/About'
 import { DocsLayout } from './pages/docs/DocsLayout'
 
@@ -59,6 +60,7 @@ function App() {
           <Route path="/secrets/:key/edit" element={<SecretEditor />} />
           <Route path="/rotation" element={<SecretRotation />} />
           <Route path="/integrations" element={<Integrations />} />
+          <Route path="/drift" element={<Drift />} />
           <Route path="/audit" element={<AuditLogs />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />

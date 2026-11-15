@@ -127,9 +127,9 @@ Built: per-user API key; `.github/workflows` builds the core only.
 
 ## 9. Drift Detection & Compliance
 
-- [ ] Fingerprint-only drift scan; classify `STALE` / `MODIFIED` / `MISSING`
-- [ ] Scheduled scans and optional auto-remediation
-- [ ] Attestation report; CSV / JSON / PDF evidence export
+- [x] Fingerprint-only drift scan; classify `STALE` / `MODIFIED` / `MISSING`
+- [x] Scheduled scans and optional auto-remediation
+- [x] Attestation report; CSV / JSON evidence export (PDF not supported)
 - [ ] VS Code drift indicator
 
 ## 10. Events, Automation, Webhooks, Notifications

@@ -24,6 +24,7 @@ import {
   X,
   UserCircle2,
   Plug,
+  Radar,
 } from 'lucide-react'
 
 const navSections = [
@@ -41,6 +42,7 @@ const navSections = [
     title: 'Security',
     items: [
       { path: '/rotation', icon: Activity, label: 'Rotation' },
+      { path: '/drift', icon: Radar, label: 'Drift Detection' },
       { path: '/audit', icon: FileText, label: 'Audit Logs' },
       { path: '/settings', icon: KeyRound, label: 'API Keys' },
     ],
