@@ -5,6 +5,7 @@ import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.repository.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,16 +17,19 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuditLogService {
 
     public static final String GENESIS_HASH = "0".repeat(64);
 
     private final AuditLogRepository auditLogRepository;
+    private final EventService eventService;
 
     @Transactional
     public AuditLog logEvent(User user, String action, String resourceType, String resourceId,
@@ -56,7 +60,27 @@ public class AuditLogService {
 
         AuditLog saved = auditLogRepository.saveAndFlush(auditLog);
         saved.setEntryHash(computeEntryHash(saved, previousHash));
-        return auditLogRepository.save(saved);
+        AuditLog persisted = auditLogRepository.save(saved);
+
+        publishDomainEvent(user, action, resourceType, resourceId, success, details, workspaceId);
+        return persisted;
+    }
+
+    /** Mirrors the audit entry into the domain event outbox (§10) for the live feed and webhooks. */
+    private void publishDomainEvent(User user, String action, String resourceType, String resourceId,
+                                    Boolean success, String details, Long workspaceId) {
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("action", action);
+            payload.put("success", success == null || success);
+            if (details != null) {
+                payload.put("details", details);
+            }
+            eventService.publish(action, user != null ? user.getId() : null, workspaceId,
+                    resourceType, resourceId, payload);
+        } catch (Exception e) {
+            log.warn("Failed to record domain event for action {}: {}", action, e.getMessage());
+        }
     }
 
     public AuditLog logEvent(User user, String action, String resourceType, String resourceId,
