@@ -94,6 +94,26 @@
 			<version>8.10.1</version>
 		</dependency>
 
+		<!-- Email notification channel (§10): SMTP via JavaMailSender.
+		     spring-context-support supplies JavaMailSenderImpl; Angus supplies the jakarta.mail
+		     API/implementation. The JavaMailSender bean itself is only created when
+		     spring.mail.host is configured (see MailConfig). -->
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-context-support</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.angus</groupId>
+			<artifactId>jakarta.mail</artifactId>
+			<version>2.0.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.angus</groupId>
+			<artifactId>angus-activation</artifactId>
+			<version>2.0.3</version>
+			<scope>runtime</scope>
+		</dependency>
+
 		<!-- BouncyCastle: X25519 + Salsa20/Poly1305 primitives for GitHub Actions
 		     secret sealed-box encryption (crypto_box_seal) -->
 		<dependency>

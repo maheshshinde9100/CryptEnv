@@ -11,8 +11,8 @@ import java.util.Optional;
 
 /**
  * Drains the {@link DomainEvent} outbox and the webhook delivery queue (§10). Event fan-out
- * (webhook endpoints, automation rules) runs here, decoupled from the request that produced
- * the event.
+ * (webhook endpoints, notifications, automation rules) runs here, decoupled from the request
+ * that produced the event.
  */
 @Service
 @RequiredArgsConstructor
@@ -24,6 +24,7 @@ public class EventDispatcher {
 
     private final EventService eventService;
     private final WebhookService webhookService;
+    private final NotificationService notificationService;
 
     @Scheduled(
             fixedDelayString = "${cryptenv.events.poll-ms:10000}",
@@ -33,6 +34,7 @@ public class EventDispatcher {
         for (DomainEvent event : events) {
             try {
                 webhookService.fanOut(event);
+                notificationService.record(event);
                 eventService.markProcessed(event.getId());
             } catch (Exception e) {
                 log.warn("Failed to dispatch event {}: {}", event.getId(), e.getMessage());

@@ -103,6 +103,24 @@ cryptenv.webhooks.enabled=${CRYPTENV_WEBHOOKS_ENABLED:true}
 cryptenv.webhooks.poll-ms=${CRYPTENV_WEBHOOKS_POLL_MS:10000}
 cryptenv.webhooks.initial-delay-ms=${CRYPTENV_WEBHOOKS_INITIAL_DELAY_MS:18000}
 
+# -------- Notifications (channels: in-app, email, Slack, Discord) --------
+# In-app notifications are always available; email/Slack/Discord are opt-in per user.
+cryptenv.notifications.enabled=${CRYPTENV_NOTIFICATIONS_ENABLED:true}
+cryptenv.notifications.from=${CRYPTENV_NOTIFICATIONS_FROM:no-reply@cryptenv.local}
+
+# -------- Email (SMTP) --------
+# The JavaMailSender bean is created ONLY when spring.mail.host is set; otherwise the email
+# channel is skipped and the deployment still boots. Leave the block commented out to disable it.
+# On Render, set SPRING_MAIL_HOST / SPRING_MAIL_PORT / SPRING_MAIL_USERNAME / SPRING_MAIL_PASSWORD
+# (Spring Boot relaxed binding maps those env vars to the properties below).
+#spring.mail.host=smtp.example.com
+#spring.mail.port=587
+#spring.mail.username=
+#spring.mail.password=
+#spring.mail.properties.mail.smtp.auth=true
+#spring.mail.properties.mail.smtp.starttls.enable=true
+
+
 # -------- Swagger / OpenAPI --------
 springdoc.api-docs.path=/api-docs
 springdoc.swagger-ui.path=/swagger-ui.html
