@@ -51,6 +51,11 @@ public class User {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    /** New accounts remain disabled until they prove control of their email address. */
+    @Builder.Default
+    @Column(name = "email_verified", nullable = false)
+    private Boolean emailVerified = false;
+
     @Builder.Default
     @Column(nullable = false)
     private Boolean accountNonExpired = true;

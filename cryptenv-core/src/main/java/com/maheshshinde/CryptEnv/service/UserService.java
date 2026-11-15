@@ -20,6 +20,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
     public UserResponseDto registerUser(UserRegistrationDto registrationDto) {
@@ -44,13 +45,15 @@ public class UserService {
                 .apiKeyPrefix(ApiKeyHasher.prefixOf(rawApiKey))
                 .apiKeyCreatedAt(LocalDateTime.now())
                 .role(com.maheshshinde.CryptEnv.model.Role.OWNER)
-                .enabled(true)
+                .enabled(false)
+                .emailVerified(false)
                 .accountNonExpired(true)
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .build();
 
         User savedUser = userRepository.save(user);
+        emailVerificationService.issue(savedUser);
         return mapToResponseDto(savedUser, rawApiKey);
     }
 
