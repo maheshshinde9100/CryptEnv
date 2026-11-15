@@ -152,4 +152,12 @@ export const postureAPI = {
   current: () => api.get('/security-posture'),
 }
 
+export const notificationsAPI = {
+  list: (params) => api.get('/notifications', { params }),
+  preferences: () => api.get('/notifications/preferences'),
+  updatePreferences: (data) => api.put('/notifications/preferences', data),
+  markRead: (id) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
+
 export default api
