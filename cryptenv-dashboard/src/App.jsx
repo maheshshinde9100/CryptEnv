@@ -16,6 +16,10 @@ import { SecretRotation } from './pages/SecretRotation'
 import { Integrations } from './pages/Integrations'
 import { Drift } from './pages/Drift'
 import { SecurityHealth } from './pages/SecurityHealth'
+import { Notifications } from './pages/Notifications'
+import { AccessRequests } from './pages/AccessRequests'
+import { AccessReviews } from './pages/AccessReviews'
+import { Subscription } from './pages/Subscription'
 import { About } from './pages/About'
 import { DocsLayout } from './pages/docs/DocsLayout'
 
@@ -65,6 +69,10 @@ function App() {
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/drift" element={<Drift />} />
           <Route path="/security-health" element={<SecurityHealth />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/access-requests" element={<AccessRequests />} />
+          <Route path="/access-reviews" element={<AccessReviews />} />
+          <Route path="/subscription" element={<Subscription />} />
           <Route path="/audit" element={<AuditLogs />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />
