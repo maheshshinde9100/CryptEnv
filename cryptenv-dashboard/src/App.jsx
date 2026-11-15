@@ -15,6 +15,7 @@ import { AuditLogs } from './pages/AuditLogs'
 import { SecretRotation } from './pages/SecretRotation'
 import { Integrations } from './pages/Integrations'
 import { Drift } from './pages/Drift'
+import { SecurityHealth } from './pages/SecurityHealth'
 import { About } from './pages/About'
 import { DocsLayout } from './pages/docs/DocsLayout'
 
@@ -63,6 +64,7 @@ function App() {
           <Route path="/rotation" element={<SecretRotation />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/drift" element={<Drift />} />
+          <Route path="/security-health" element={<SecurityHealth />} />
           <Route path="/audit" element={<AuditLogs />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />

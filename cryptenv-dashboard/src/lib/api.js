@@ -148,4 +148,8 @@ export const healthAPI = {
   check: () => api.get('/health'),
 }
 
+export const postureAPI = {
+  current: () => api.get('/security-posture'),
+}
+
 export default api

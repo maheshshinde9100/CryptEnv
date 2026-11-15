@@ -43,6 +43,7 @@ const navSections = [
     items: [
       { path: '/rotation', icon: Activity, label: 'Rotation' },
       { path: '/drift', icon: Radar, label: 'Drift Detection' },
+      { path: '/security-health', icon: Shield, label: 'Security Health' },
       { path: '/audit', icon: FileText, label: 'Audit Logs' },
       { path: '/settings', icon: KeyRound, label: 'API Keys' },
     ],

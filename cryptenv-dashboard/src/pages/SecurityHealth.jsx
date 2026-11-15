@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { secretsAPI, workspaceAPI } from '../lib/api'
+import { secretsAPI, workspaceAPI, postureAPI } from '../lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
 import { Shield, ShieldCheck, ShieldAlert, ShieldOff, Key, Lock, AlertTriangle, CheckCircle2, Activity } from 'lucide-react'
@@ -15,9 +15,15 @@ export function SecurityHealth() {
     queryFn: () => workspaceAPI.list().then((res) => res.data),
   })
 
+  const { data: posture, isLoading: postureLoading } = useQuery({
+    queryKey: ['security-posture'],
+    queryFn: () => postureAPI.current().then((res) => res.data),
+  })
+
   const totalSecrets = secrets?.length || 0
   const totalWorkspaces = workspaces?.length || 0
-  const isLoading = secretsLoading || workspacesLoading
+  const isLoading = secretsLoading || workspacesLoading || postureLoading
+  const metrics = posture?.metrics || {}
 
   const checks = [
     {
@@ -41,7 +47,7 @@ export function SecurityHealth() {
     {
       label: 'Secrets Encrypted',
       description: `${totalSecrets} secret(s) stored with AES-256 encryption`,
-      status: totalSecrets >= 0 ? 'pass' : 'warn',
+      status: metrics.expiredSecrets > 0 ? 'fail' : 'pass',
       icon: ShieldCheck,
     },
     {
@@ -61,7 +67,7 @@ export function SecurityHealth() {
   const passCount = checks.filter((c) => c.status === 'pass').length
   const warnCount = checks.filter((c) => c.status === 'warn').length
   const failCount = checks.filter((c) => c.status === 'fail').length
-  const score = Math.round((passCount / checks.length) * 100)
+  const score = posture?.score ?? Math.round((passCount / checks.length) * 100)
 
   return (
     <div className="space-y-6">
@@ -160,6 +166,23 @@ export function SecurityHealth() {
           )}
         </CardContent>
       </Card>
+
+      {!isLoading && posture?.remediation?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Prioritized remediation</CardTitle>
+            <CardDescription>Actions calculated from your current secret metadata and MFA posture</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {posture.remediation.map((item) => (
+              <div key={item.title} className="flex items-start justify-between gap-4 rounded-lg border p-4">
+                <div><p className="font-semibold text-sm">{item.title}</p><p className="text-xs text-muted-foreground mt-1">{item.description}</p></div>
+                <span className="text-xs font-bold px-2 py-1 rounded-full bg-muted">{item.priority}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
