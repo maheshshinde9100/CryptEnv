@@ -91,6 +91,11 @@ encryption.master.key=${MASTER_ENCRYPTION_KEY}
 # Set true to write new secrets with PBKDF2 v2 ciphertext (decrypt still accepts v1)
 cryptenv.encryption.use-pbkdf2=${CRYPTENV_USE_PBKDF2:false}
 
+# -------- Envelope encryption (§3) --------
+# When true, each secret version uses a unique DEK wrapped by the workspace KEK.
+# This enables key rotation without re-encrypting all secrets. Default false for compatibility.
+cryptenv.envelope-encryption.enabled=${CRYPTENV_ENVELOPE_ENCRYPTION_ENABLED:false}
+
 # -------- Drift detection (§9) --------
 # Secrets not pushed to a provider within this many days are flagged STALE
 cryptenv.drift.stale-days=${CRYPTENV_DRIFT_STALE_DAYS:30}
@@ -111,6 +116,14 @@ cryptenv.notifications.from=${CRYPTENV_NOTIFICATIONS_FROM:no-reply@cryptenv.loca
 # -------- Automation rules (ON event WHERE condition DO action) --------
 # Each rule is capped at 3 fires per rolling 60s window to break event cascades.
 cryptenv.automations.enabled=${CRYPTENV_AUTOMATIONS_ENABLED:true}
+
+# -------- Four-eyes approval (destructive actions) --------
+# A request must be approved by a different owner/admin before it executes. Pending
+# requests expire after ttl-hours; a scheduled sweep marks stale ones EXPIRED.
+cryptenv.approvals.enabled=${CRYPTENV_APPROVALS_ENABLED:true}
+cryptenv.approvals.ttl-hours=${CRYPTENV_APPROVALS_TTL_HOURS:24}
+cryptenv.approvals.sweep-ms=${CRYPTENV_APPROVALS_SWEEP_MS:300000}
+cryptenv.approvals.sweep-initial-delay-ms=${CRYPTENV_APPROVALS_SWEEP_INITIAL_DELAY_MS:60000}
 
 # -------- Email (SMTP) --------
 # The JavaMailSender bean is created ONLY when spring.mail.host is set; otherwise the email
