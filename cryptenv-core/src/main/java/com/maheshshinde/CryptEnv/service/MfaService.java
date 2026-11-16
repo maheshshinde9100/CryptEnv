@@ -189,4 +189,38 @@ public class MfaService {
         return userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
+
+    /**
+     * Generate a step-up MFA challenge token for sensitive operations.
+     * Returns a 5-minute token that must be verified with TOTP before proceeding.
+     */
+    @Transactional
+    public String generateStepUpToken() {
+        User user = requireCurrentUser();
+        if (!Boolean.TRUE.equals(user.getMfaEnabled())) {
+            throw new InvalidCredentialsException("MFA must be enabled for step-up authentication");
+        }
+        return tokenProvider.generateMfaChallengeToken(user.getId(), user.getEmail());
+    }
+
+    /**
+     * Verify a step-up MFA challenge token with TOTP code.
+     * Returns the user if verification succeeds.
+     */
+    @Transactional
+    public User verifyStepUpToken(String stepUpToken, String totpCode) {
+        if (!tokenProvider.validateToken(stepUpToken) || !tokenProvider.isMfaChallengeToken(stepUpToken)) {
+            throw new InvalidCredentialsException("Invalid or expired step-up token");
+        }
+        Long userId = tokenProvider.getUserIdFromToken(stepUpToken);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new InvalidCredentialsException("User not found"));
+        if (!Boolean.TRUE.equals(user.getMfaEnabled())) {
+            throw new InvalidCredentialsException("MFA not enabled for this account");
+        }
+        if (!consumeMfaOrRecoveryCode(user, totpCode)) {
+            throw new InvalidCredentialsException("Invalid TOTP code");
+        }
+        return user;
+    }
 }

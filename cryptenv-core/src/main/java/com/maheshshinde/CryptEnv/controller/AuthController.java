@@ -236,4 +236,38 @@ public class AuthController {
         );
         return ResponseEntity.ok(jwtResponse);
     }
+
+    @PostMapping("/mfa/step-up")
+    @Operation(summary = "Generate step-up MFA challenge token for sensitive operations")
+    public ResponseEntity<java.util.Map<String, String>> generateStepUpToken(HttpServletRequest request) {
+        String stepUpToken = mfaService.generateStepUpToken();
+        auditLogService.logEvent(
+                authenticationService.getUserByEmail(authenticationService.getCurrentUser().getEmail()),
+                "STEP_UP_MFA_REQUESTED",
+                "USER",
+                null,
+                true,
+                request
+        );
+        return ResponseEntity.ok(java.util.Map.of("stepUpToken", stepUpToken));
+    }
+
+    @PostMapping("/mfa/step-up/verify")
+    @Operation(summary = "Verify step-up MFA challenge with TOTP code")
+    public ResponseEntity<java.util.Map<String, String>> verifyStepUpToken(
+            @RequestBody java.util.Map<String, String> body,
+            HttpServletRequest request) {
+        String stepUpToken = body.get("stepUpToken");
+        String totpCode = body.get("totpCode");
+        mfaService.verifyStepUpToken(stepUpToken, totpCode);
+        auditLogService.logEvent(
+                authenticationService.getUserByEmail(authenticationService.getCurrentUser().getEmail()),
+                "STEP_UP_MFA_VERIFIED",
+                "USER",
+                null,
+                true,
+                request
+        );
+        return ResponseEntity.ok(java.util.Map.of("message", "Step-up MFA verified"));
+    }
 }
