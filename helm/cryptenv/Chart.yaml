@@ -1,0 +1,14 @@
+apiVersion: v2
+name: cryptenv
+description: A Helm chart for CryptEnv - Production-grade secrets management platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - secrets
+  - vault
+  - security
+  - encryption
+maintainers:
+  - name: Mahesh Shinde
+    email: mahesh@example.com
