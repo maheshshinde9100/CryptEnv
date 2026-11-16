@@ -10,6 +10,7 @@ import com.maheshshinde.CryptEnv.repository.SecretRepository;
 import com.maheshshinde.CryptEnv.repository.SecretVersionRepository;
 import com.maheshshinde.CryptEnv.security.EncryptionException;
 import com.maheshshinde.CryptEnv.security.EncryptionService;
+import com.maheshshinde.CryptEnv.security.EnvelopeEncryptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class SecretVersionService {
     private final SecretVersionRepository secretVersionRepository;
     private final SecretRepository secretRepository;
     private final EncryptionService encryptionService;
+    private final EnvelopeEncryptionService envelopeEncryptionService;
     private final SecurityService securityService;
     private final WorkspaceService workspaceService;
 
@@ -73,8 +75,26 @@ public class SecretVersionService {
         }
 
         String encryptedValue;
+        String wrappedDek = null;
+        String dekAlgorithm = null;
+        String dekIv = null;
+        String dekTag = null;
+
         try {
-            encryptedValue = encryptionService.encryptWithKey(value, workspaceKey);
+            if (envelopeEncryptionService.isEnabled()) {
+                // Use envelope encryption
+                EnvelopeEncryptionService.EnvelopeResult result = envelopeEncryptionService.encryptWithEnvelope(value, workspaceKey);
+                encryptedValue = result.getCiphertext();
+                if (result.isEnvelopeMode()) {
+                    wrappedDek = result.getWrappedDek();
+                    dekAlgorithm = result.getDekAlgorithm();
+                    dekIv = result.getDekIv();
+                    dekTag = result.getDekTag();
+                }
+            } else {
+                // Legacy direct encryption
+                encryptedValue = encryptionService.encryptWithKey(value, workspaceKey);
+            }
         } catch (EncryptionException e) {
             log.error("Failed to encrypt secret value for version", e);
             throw new RuntimeException("Failed to encrypt secret value for version", e);
@@ -97,6 +117,10 @@ public class SecretVersionService {
                 .workspace(workspace)
                 .versionNumber(nextVersion)
                 .encryptedValue(encryptedValue)
+                .wrappedDek(wrappedDek)
+                .dekAlgorithm(dekAlgorithm)
+                .dekIv(dekIv)
+                .dekTag(dekTag)
                 .isActive(true)
                 .rotationReason(reason)
                 .rotatedByEmail(rotatedByEmail)
@@ -166,5 +190,31 @@ public class SecretVersionService {
     public void deleteAllVersions(String secretKey) {
         findSecretWithAccessCheck(secretKey);
         secretVersionRepository.deleteBySecretKey(secretKey);
+    }
+
+    /**
+     * Decrypt a secret version value, handling both envelope and legacy encryption.
+     */
+    @Transactional(readOnly = true)
+    public String decryptVersionValue(SecretVersion version, String workspaceKey) {
+        try {
+            if (version.getWrappedDek() != null && !version.getWrappedDek().isBlank()) {
+                // Envelope encryption mode
+                return envelopeEncryptionService.decryptWithEnvelope(
+                        version.getEncryptedValue(),
+                        workspaceKey,
+                        version.getWrappedDek(),
+                        version.getDekAlgorithm(),
+                        version.getDekIv(),
+                        version.getDekTag()
+                );
+            } else {
+                // Legacy direct encryption mode
+                return encryptionService.decryptWithKey(version.getEncryptedValue(), workspaceKey);
+            }
+        } catch (EncryptionException e) {
+            log.error("Failed to decrypt secret version {}", version.getId(), e);
+            throw new RuntimeException("Failed to decrypt secret value", e);
+        }
     }
 }

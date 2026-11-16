@@ -94,9 +94,10 @@ public class Secret {
     @Column(length = 500)
     private String tags;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "secret_type", length = 50)
     @Builder.Default
-    private String secretType = "TEXT";
+    private SecretType secretType = SecretType.TEXT;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -105,4 +106,13 @@ public class Secret {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public enum SecretType {
+        TEXT,
+        MULTILINE,
+        JSON,
+        CERTIFICATE,
+        SSH_KEY,
+        BINARY
+    }
 }

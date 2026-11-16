@@ -1,5 +1,6 @@
 package com.maheshshinde.CryptEnv.dto;
 
+import com.maheshshinde.CryptEnv.model.Secret;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,4 +23,13 @@ public class SecretResponseDto {
     private Integer version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Secret.SecretType secretType;
+    private String tags;
+    private Boolean isActive;
+    private Boolean isDeleted;
+    private Boolean autoRotate;
+    private Integer rotationIntervalDays;
+    private LocalDateTime lastRotatedAt;
+    private LocalDateTime nextRotationAt;
+    private LocalDateTime expiresAt;
 }

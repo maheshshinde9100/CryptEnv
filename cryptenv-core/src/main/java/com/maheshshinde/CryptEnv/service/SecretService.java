@@ -133,6 +133,8 @@ public class SecretService {
                 .version(version)
                 .currentVersion(version)
                 .contentFingerprint(EncryptionService.fingerprint(createDto.getValue()))
+                .secretType(createDto.getSecretType() != null ? createDto.getSecretType() : Secret.SecretType.TEXT)
+                .tags(createDto.getTags())
                 .build();
 
         Secret savedSecret = secretRepository.save(secret);
@@ -408,6 +410,78 @@ public class SecretService {
                 .version(secret.getVersion())
                 .createdAt(secret.getCreatedAt())
                 .updatedAt(secret.getUpdatedAt())
+                .secretType(secret.getSecretType())
+                .tags(secret.getTags())
+                .isActive(secret.getIsActive())
+                .isDeleted(secret.getIsDeleted())
+                .autoRotate(secret.getAutoRotate())
+                .rotationIntervalDays(secret.getRotationIntervalDays())
+                .lastRotatedAt(secret.getLastRotatedAt())
+                .nextRotationAt(secret.getNextRotationAt())
+                .expiresAt(secret.getExpiresAt())
                 .build();
+    }
+
+    @Transactional
+    public SecretResponseDto rotateSecret(Long environmentId, String key, String newValue) {
+        Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
+                .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
+        validateEnvironmentOwnership(secret.getEnvironment(), securityService.getCurrentUser());
+
+        updateSecret(environmentId, key, SecretUpdateDto.builder()
+                .value(newValue)
+                .description(secret.getDescription())
+                .build());
+        Secret updated = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
+                .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
+        updated.setLastRotatedAt(java.time.LocalDateTime.now());
+        if (updated.getRotationIntervalDays() != null && updated.getRotationIntervalDays() > 0) {
+            updated.setNextRotationAt(java.time.LocalDateTime.now().plusDays(updated.getRotationIntervalDays()));
+        }
+        updated.setUpdatedByEmail(securityService.getCurrentUser().getEmail());
+        Secret saved = secretRepository.save(updated);
+        return mapToResponseDto(saved, newValue);
+    }
+
+    /**
+     * Get the decrypted value of a secret for reveal operations.
+     * This method is used with step-up MFA protection.
+     */
+    @Transactional(readOnly = true)
+    public String getDecryptedSecretValue(Long environmentId, String key) {
+        User currentUser = securityService.getCurrentUser();
+        Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
+                .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key + " in environment: " + environmentId));
+        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+
+        String storedValue = secret.getValue() != null ? secret.getValue() : secret.getEncryptedValue();
+
+        if (!Boolean.TRUE.equals(secret.getEncrypted())) {
+            return storedValue;
+        }
+
+        try {
+            String workspaceKey = getWorkspaceEncryptionKeyForEnv(secret.getEnvironment());
+            String aad = EncryptionService.aadFor(
+                    secret.getEnvironment().getWorkspace().getId(),
+                    secret.getEnvironment().getId(),
+                    secret.getKey(),
+                    secret.getVersion() != null ? secret.getVersion() : 1);
+            try {
+                return encryptionService.decryptWithKey(storedValue, workspaceKey, aad);
+            } catch (EncryptionException aadMiss) {
+                // Legacy ciphertext written without AAD
+                return encryptionService.decryptWithKey(storedValue, workspaceKey);
+            }
+        } catch (ResourceNotFoundException e) {
+            log.warn("Workspace key missing for secret: {} - {}", secret.getKey(), e.getMessage());
+            throw new RuntimeException("Workspace encryption key not set");
+        } catch (EncryptionException e) {
+            log.error("Failed to decrypt secret: {} - wrong workspace key, AAD, or corrupted", secret.getKey(), e);
+            throw new RuntimeException("Failed to decrypt secret - invalid workspace key or corrupted data");
+        } catch (Exception e) {
+            log.error("Unexpected error decrypting secret: {}", secret.getKey(), e);
+            throw new RuntimeException("Decryption error");
+        }
     }
 }

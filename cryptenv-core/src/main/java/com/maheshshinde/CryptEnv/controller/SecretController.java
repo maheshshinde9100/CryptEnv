@@ -5,8 +5,10 @@ import com.maheshshinde.CryptEnv.dto.SecretResponseDto;
 import com.maheshshinde.CryptEnv.dto.SecretUpdateDto;
 import com.maheshshinde.CryptEnv.model.Permission;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
+import com.maheshshinde.CryptEnv.service.MfaService;
 import com.maheshshinde.CryptEnv.service.SecretImportExportService;
 import com.maheshshinde.CryptEnv.service.SecretService;
+import com.maheshshinde.CryptEnv.service.SecretValueGenerator;
 import com.maheshshinde.CryptEnv.service.SecurityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +33,8 @@ public class SecretController {
     private final SecretImportExportService secretImportExportService;
     private final AuditLogService auditLogService;
     private final SecurityService securityService;
+    private final MfaService mfaService;
+    private final SecretValueGenerator secretValueGenerator;
 
     @PostMapping
     @Operation(summary = "Create a new secret")
@@ -127,6 +131,24 @@ public class SecretController {
         return noStore(ResponseEntity.ok(updatedSecret));
     }
 
+    @PostMapping("/environment/{environmentId}/{key}/rotate")
+    @Operation(summary = "Generate and atomically rotate a secret value")
+    public ResponseEntity<SecretResponseDto> rotateSecret(@PathVariable Long environmentId,
+                                                           @PathVariable String key,
+                                                           HttpServletRequest request) {
+        securityService.checkPermission(Permission.SECRET_WRITE);
+        SecretResponseDto current = secretService.getSecretByEnvironmentAndKey(environmentId, key);
+        SecretResponseDto rotated = secretService.rotateSecret(environmentId, key,
+                secretValueGenerator.generate(com.maheshshinde.CryptEnv.model.Secret.builder()
+                        .key(current.getKey())
+                        .description(current.getDescription())
+                        .secretType(current.getSecretType())
+                        .build()));
+        auditLogService.logEvent(securityService.getCurrentUser(), "SECRET_ROTATE", "SECRET", key,
+                true, request, "Manual rotation");
+        return noStore(ResponseEntity.ok(rotated));
+    }
+
     @DeleteMapping("/{key}")
     @Operation(summary = "Delete a secret by key")
     public ResponseEntity<Void> deleteSecret(@PathVariable String key,
@@ -201,5 +223,55 @@ public class SecretController {
         auditLogService.logEvent(securityService.getCurrentUser(), "SECRET_BULK", "ENVIRONMENT",
                 environmentId.toString(), true, request);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/environment/{environmentId}/{key}/reveal")
+    @Operation(summary = "Reveal decrypted secret value (requires step-up MFA)")
+    public ResponseEntity<Map<String, String>> revealSecret(
+            @PathVariable Long environmentId,
+            @PathVariable String key,
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.SECRET_READ);
+        String stepUpToken = body.get("stepUpToken");
+        String totpCode = body.get("totpCode");
+
+        // Verify step-up MFA
+        mfaService.verifyStepUpToken(stepUpToken, totpCode);
+
+        // Get decrypted value
+        String decryptedValue = secretService.getDecryptedSecretValue(environmentId, key);
+
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "SECRET_REVEAL",
+                "SECRET",
+                key,
+                true,
+                request
+        );
+
+        return noStore(ResponseEntity.ok(Map.of("value", decryptedValue)));
+    }
+
+    @GetMapping("/environment/{environmentId}/{key}/versions/diff")
+    @Operation(summary = "Compare two secret versions")
+    public ResponseEntity<Map<String, Object>> diffVersions(
+            @PathVariable Long environmentId,
+            @PathVariable String key,
+            @RequestParam Integer fromVersion,
+            @RequestParam Integer toVersion,
+            HttpServletRequest request) {
+        securityService.checkPermission(Permission.SECRET_READ);
+        Map<String, Object> diff = secretService.diffVersions(environmentId, key, fromVersion, toVersion);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "SECRET_VERSION_DIFF",
+                "SECRET",
+                key,
+                true,
+                request
+        );
+        return ResponseEntity.ok(diff);
     }
 }
