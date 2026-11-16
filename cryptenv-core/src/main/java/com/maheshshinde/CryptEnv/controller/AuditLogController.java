@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -115,5 +116,15 @@ public class AuditLogController {
     public ResponseEntity<java.util.Map<String, Object>> verifyChain() {
         securityService.checkPermission(Permission.AUDIT_READ);
         return ResponseEntity.ok(auditLogService.verifyHashChain());
+    }
+
+    @GetMapping(value = "/export", produces = { MediaType.APPLICATION_JSON_VALUE, "text/csv" })
+    @Operation(summary = "Export tamper-evident audit evidence as JSON or CSV")
+    public ResponseEntity<String> export(@RequestParam(required = false) Long workspaceId,
+                                         @RequestParam(defaultValue = "json") String format) {
+        securityService.checkPermission(Permission.AUDIT_READ);
+        boolean csv = "csv".equalsIgnoreCase(format);
+        return ResponseEntity.ok().contentType(csv ? MediaType.valueOf("text/csv") : MediaType.APPLICATION_JSON)
+                .body(auditLogService.export(workspaceId, format));
     }
 }

@@ -21,7 +21,11 @@ public class SecurityIncident {
     @Column(nullable = false, length = 200) private String title;
     @Column(columnDefinition = "TEXT") private String description;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) @Builder.Default private Status status = Status.OPEN;
-    @Column(name = "timeline", columnDefinition = "TEXT") private String timeline;
+    @Column(length = 20) private String severity;
+    @Column(name = "affected_secrets", columnDefinition = "TEXT") private String affectedSecrets;
+    @Column(name = "affected_versions", columnDefinition = "TEXT") private String affectedVersions;
+    @Column(name = "quarantine_actions", columnDefinition = "TEXT") private String quarantineActions;
+    @Column(name = "timeline", columnDefinition = "JSONB") private String timeline;
     @Column(name = "post_mortem", columnDefinition = "TEXT") private String postMortem;
     @CreationTimestamp @Column(name = "created_at", updatable = false) private LocalDateTime createdAt;
     @UpdateTimestamp @Column(name = "updated_at") private LocalDateTime updatedAt;

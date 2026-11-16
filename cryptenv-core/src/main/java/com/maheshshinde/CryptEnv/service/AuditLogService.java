@@ -20,6 +20,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +31,7 @@ public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
     private final EventService eventService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public AuditLog logEvent(User user, String action, String resourceType, String resourceId,
@@ -114,6 +116,29 @@ public class AuditLogService {
     public Page<AuditLog> getWorkspaceAuditLogs(Long workspaceId, Pageable pageable) {
         return auditLogRepository.findByWorkspaceIdOrderByTimestampDesc(workspaceId, pageable);
     }
+
+    /** Export audit evidence without user/password/secret-value fields. */
+    @Transactional(readOnly = true)
+    public String export(Long workspaceId, String format) {
+        List<AuditLog> logs = workspaceId == null ? auditLogRepository.findAllByOrderByIdAsc()
+                : auditLogRepository.findByWorkspaceIdOrderByTimestampDesc(workspaceId, Pageable.unpaged()).getContent();
+        List<Map<String, Object>> rows = logs.stream().map(log -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", log.getId()); row.put("timestamp", log.getTimestamp()); row.put("workspaceId", log.getWorkspaceId());
+            row.put("actorId", log.getUser() != null ? log.getUser().getId() : null); row.put("action", log.getAction());
+            row.put("resourceType", log.getResourceType()); row.put("resourceId", log.getResourceId()); row.put("success", log.getSuccess());
+            row.put("ipAddress", log.getIpAddress()); row.put("details", log.getDetails()); row.put("previousHash", log.getPreviousHash()); row.put("entryHash", log.getEntryHash());
+            return row;
+        }).toList();
+        try {
+            if (!"csv".equalsIgnoreCase(format)) return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(rows);
+            StringBuilder csv = new StringBuilder("id,timestamp,workspace_id,actor_id,action,resource_type,resource_id,success,ip_address,details,previous_hash,entry_hash\n");
+            for (Map<String, Object> row : rows) csv.append(row.values().stream().map(this::csv).collect(java.util.stream.Collectors.joining(","))).append('\n');
+            return csv.toString();
+        } catch (Exception e) { throw new IllegalStateException("Could not export audit evidence", e); }
+    }
+
+    private String csv(Object value) { String text = value == null ? "" : String.valueOf(value); return "\"" + text.replace("\"", "\"\"") + "\""; }
 
     /**
      * Verifies the SHA-256 hash chain from oldest to newest.
