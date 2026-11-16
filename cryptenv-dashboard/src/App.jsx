@@ -20,6 +20,9 @@ import { Notifications } from './pages/Notifications'
 import { AccessRequests } from './pages/AccessRequests'
 import { AccessReviews } from './pages/AccessReviews'
 import { Subscription } from './pages/Subscription'
+import { Incidents } from './pages/Incidents'
+import { Leaks } from './pages/Leaks'
+import { SecretHistory } from './pages/SecretHistory'
 import { About } from './pages/About'
 import { DocsLayout } from './pages/docs/DocsLayout'
 
@@ -65,6 +68,7 @@ function App() {
           <Route path="/secrets" element={<Secrets />} />
           <Route path="/secrets/new" element={<SecretEditor />} />
           <Route path="/secrets/:key/edit" element={<SecretEditor />} />
+          <Route path="/secrets/:key/history" element={<SecretHistory />} />
           <Route path="/rotation" element={<SecretRotation />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/drift" element={<Drift />} />
@@ -73,6 +77,8 @@ function App() {
           <Route path="/access-requests" element={<AccessRequests />} />
           <Route path="/access-reviews" element={<AccessReviews />} />
           <Route path="/subscription" element={<Subscription />} />
+          <Route path="/incidents" element={<Incidents />} />
+          <Route path="/leaks" element={<Leaks />} />
           <Route path="/audit" element={<AuditLogs />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />

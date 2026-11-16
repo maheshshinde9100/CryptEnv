@@ -27,6 +27,9 @@ import {
   Radar,
   Bell,
   ClipboardCheck,
+  Siren,
+  ScanSearch,
+  Shield,
 } from 'lucide-react'
 
 const navSections = [
@@ -48,6 +51,8 @@ const navSections = [
       { path: '/security-health', icon: Shield, label: 'Security Health' },
       { path: '/access-requests', icon: KeyRound, label: 'Access Requests' },
       { path: '/access-reviews', icon: ClipboardCheck, label: 'Access Reviews' },
+      { path: '/incidents', icon: Siren, label: 'Incidents' },
+      { path: '/leaks', icon: ScanSearch, label: 'Leak Findings' },
       { path: '/audit', icon: FileText, label: 'Audit Logs' },
       { path: '/settings', icon: KeyRound, label: 'API Keys' },
     ],

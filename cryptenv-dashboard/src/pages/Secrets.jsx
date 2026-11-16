@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { secretsAPI, environmentAPI } from '../lib/api'
@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Skeleton } from '../components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Search, Plus, Eye, EyeOff, Trash2, Edit, Lock, Copy } from 'lucide-react'
+import { Search, Plus, Eye, EyeOff, Trash2, Edit, Lock, Copy, History } from 'lucide-react'
 
 export function Secrets() {
   const navigate = useNavigate()
@@ -16,6 +16,11 @@ export function Secrets() {
   const [searchQuery, setSearchQuery] = useState('')
   const [visibleSecrets, setVisibleSecrets] = useState({})
   const [envFilter, setEnvFilter] = useState('all')
+  const revealTimers = useRef(new Map())
+
+  useEffect(() => () => {
+    revealTimers.current.forEach((timer) => clearTimeout(timer))
+  }, [])
 
   const workspaceId = activeWorkspace?.id || Number(localStorage.getItem('activeWorkspaceId') || 0)
 
@@ -56,9 +61,34 @@ export function Secrets() {
 
   const envName = (id) => environments.find((e) => e.id === id)?.name || '—'
 
+  const secretId = (secret) => `${secret.environmentId}:${secret.key}`
+
+  const toggleVisibility = (secret) => {
+    const id = secretId(secret)
+    const isShown = !!visibleSecrets[id]
+    const activeTimer = revealTimers.current.get(id)
+    if (activeTimer) clearTimeout(activeTimer)
+
+    setVisibleSecrets((previous) => ({ ...previous, [id]: !isShown }))
+    if (!isShown) {
+      revealTimers.current.set(
+        id,
+        setTimeout(() => {
+          setVisibleSecrets((previous) => ({ ...previous, [id]: false }))
+          revealTimers.current.delete(id)
+        }, 30_000)
+      )
+    } else {
+      revealTimers.current.delete(id)
+    }
+  }
+
   const copyValue = async (value) => {
     await navigator.clipboard.writeText(value || '')
-    toast.success('Copied to clipboard')
+    setTimeout(() => {
+      navigator.clipboard.writeText('').catch(() => {})
+    }, 30_000)
+    toast.success('Copied to clipboard. It will be cleared in 30 seconds.')
   }
 
   return (
@@ -67,7 +97,7 @@ export function Secrets() {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1 text-xs text-muted-foreground mb-3">
             <Lock className="h-3.5 w-3.5 text-primary" />
-            Values stored encrypted at rest · reveal with eye icon
+            Values stored encrypted at rest · reveals and clipboard entries expire after 30 seconds
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Secrets</h1>
           <p className="text-muted-foreground mt-1">
@@ -119,7 +149,7 @@ export function Secrets() {
         ) : (
           <div className="space-y-2">
             {filtered.map((secret) => {
-              const shown = !!visibleSecrets[secret.key]
+              const shown = !!visibleSecrets[secretId(secret)]
               const masked =
                 secret.value && !String(secret.value).startsWith('[')
                   ? '•'.repeat(Math.min(24, Math.max(12, String(secret.value).length)))
@@ -149,21 +179,27 @@ export function Secrets() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      title={shown ? 'Hide value' : 'Reveal decrypted value'}
-                      onClick={() =>
-                        setVisibleSecrets((prev) => ({ ...prev, [secret.key]: !prev[secret.key] }))
-                      }
+                      title={shown ? 'Hide value' : 'Reveal for 30 seconds'}
+                      onClick={() => toggleVisibility(secret)}
                     >
                       {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      title="Copy value"
+                      title="Copy value (clears after 30 seconds)"
                       onClick={() => copyValue(secret.value)}
                       disabled={!secret.value || String(secret.value).startsWith('[')}
                     >
                       <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Version history"
+                      onClick={() => navigate(`/secrets/${encodeURIComponent(secret.key)}/history`, { state: { environmentId: secret.environmentId } })}
+                    >
+                      <History className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
