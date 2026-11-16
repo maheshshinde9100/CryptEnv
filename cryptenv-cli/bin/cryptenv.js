@@ -12,6 +12,7 @@ const jitCommands = require('../src/commands/jit');
 const contextCommands = require('../src/commands/context');
 const { doctor, whoami, status } = require('../src/commands/doctor');
 const { completion } = require('../src/commands/completion');
+const scanCommands = require('../src/commands/scan');
 
 program
   .name('cryptenv')
@@ -31,6 +32,8 @@ program.command('profile').description('Show current user profile').action(profi
 program.command('whoami').option('--json', 'JSON output').description('Show authenticated user').action(whoami);
 program.command('status').option('--json', 'JSON output').description('Show auth + workspaces').action(status);
 program.command('doctor').description('Check API health and local config').action(doctor);
+program.command('scan [path]').option('--staged', 'Scan staged Git files').option('--json', 'JSON output').description('Scan source files for potential secret leaks').action((file = '.', opts) => opts.staged ? scanCommands.staged(opts) : scanCommands.scanPath(file, opts));
+program.command('install-hook').description('Install a pre-commit secret scan hook').action(scanCommands.installHook);
 
 // --- Context ------------------------------------------------------------------
 program
