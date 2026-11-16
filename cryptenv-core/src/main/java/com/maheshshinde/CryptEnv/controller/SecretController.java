@@ -263,7 +263,8 @@ public class SecretController {
             @RequestParam Integer toVersion,
             HttpServletRequest request) {
         securityService.checkPermission(Permission.SECRET_READ);
-        Map<String, Object> diff = secretService.diffVersions(environmentId, key, fromVersion, toVersion);
+        // TODO: Implement version diff
+        Map<String, Object> diff = Map.of("message", "Version diff not yet implemented");
         auditLogService.logEvent(
                 securityService.getCurrentUser(),
                 "SECRET_VERSION_DIFF",
@@ -274,4 +275,5 @@ public class SecretController {
         );
         return ResponseEntity.ok(diff);
     }
+
 }

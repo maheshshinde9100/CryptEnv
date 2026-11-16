@@ -2,6 +2,7 @@ package com.maheshshinde.CryptEnv.controller;
 
 import com.maheshshinde.CryptEnv.dto.JwtResponseDto;
 import com.maheshshinde.CryptEnv.model.DeviceCode;
+import com.maheshshinde.CryptEnv.repository.UserRepository;
 import com.maheshshinde.CryptEnv.service.AuthenticationService;
 import com.maheshshinde.CryptEnv.service.DeviceCodeService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +22,7 @@ public class DeviceCodeController {
 
     private final DeviceCodeService deviceCodeService;
     private final AuthenticationService authenticationService;
+    private final UserRepository userRepository;
 
     @PostMapping("/request")
     @Operation(summary = "Request device code for CLI login")
@@ -47,11 +49,14 @@ public class DeviceCodeController {
         DeviceCode dc = deviceCodeService.pollDeviceCode(deviceCode);
         
         if ("approved".equals(dc.getStatus()) && dc.getUserId() != null) {
-            var user = authenticationService.getUserService().findById(dc.getUserId());
-            JwtResponseDto jwtResponse = authenticationService.generateTokens(user);
+            var user = userRepository.findById(dc.getUserId()).orElseThrow();
+            // Generate tokens without password for device code flow
+            JwtResponseDto jwtResponse = authenticationService.authenticate(
+                    new com.maheshshinde.CryptEnv.dto.UserLoginDto(user.getEmail(), null)
+            );
             return ResponseEntity.ok(Map.of(
                     "status", "approved",
-                    "accessToken", jwtResponse.getAccessToken(),
+                    "token", jwtResponse.getToken(),
                     "refreshToken", jwtResponse.getRefreshToken(),
                     "expiresIn", jwtResponse.getExpiresIn()
             ));

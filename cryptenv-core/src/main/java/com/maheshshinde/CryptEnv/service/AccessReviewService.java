@@ -41,8 +41,8 @@ public class AccessReviewService {
         for (WorkspaceMember member : members) {
             AccessReviewItem item = AccessReviewItem.builder()
                     .accessReviewId(review.getId())
-                    .userId(member.getUserId())
-                    .workspaceMemberId(member.getId())
+                    .userId(member.getUser().getId())
+                    .workspaceMemberId(member.getWorkspace().getId())
                     .role(member.getRole().name())
                     .status("pending")
                     .build();

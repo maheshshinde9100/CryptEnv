@@ -6,7 +6,6 @@ import com.maheshshinde.CryptEnv.service.AuthenticationService;
 import com.maheshshinde.CryptEnv.service.WebAuthnService;
 import com.yubico.webauthn.RelyingParty;
 import com.yubico.webauthn.StartRegistrationOptions;
-import com.yubico.webauthn.data.RegistrationResult;
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,7 +36,7 @@ public class WebAuthnController {
                         .user(com.yubico.webauthn.data.UserIdentity.builder()
                                 .name(currentUser.getUsername())
                                 .displayName(currentUser.getEmail())
-                                .id(java.util.Base64.getUrlEncoder().encode(currentUser.getId().toString().getBytes()))
+                                .id(com.yubico.webauthn.data.ByteArray.fromBase64(java.util.Base64.getUrlEncoder().encodeToString(currentUser.getId().toString().getBytes())))
                                 .build())
                         .build()
         );
@@ -46,64 +45,25 @@ public class WebAuthnController {
 
     @PostMapping("/register/finish")
     @Operation(summary = "Complete WebAuthn registration")
-    public ResponseEntity<Map<String, String>> finishRegistration(@RequestBody RegistrationResult result,
+    public ResponseEntity<Map<String, String>> finishRegistration(@RequestBody Map<String, Object> credential,
                                                                    HttpServletRequest request) {
-        var currentUser = authenticationService.getCurrentUser();
-        relyingParty.finishRegistration(result);
-        
-        webAuthnService.addCredential(
-                currentUser.getId(),
-                result.getResponse().getAttestedCredentialData().get().getCredentialId().getBase64(),
-                result.getResponse().getAttestedCredentialData().get().getCredentialPublicKey().getBase64(),
-                result.getResponse().getUserHandle().getBase64(),
-                result.getResponse().getAttestedCredentialData().get().getAaguid().getBase64(),
-                result.getAttestationType().name(),
-                "Passkey"
-        );
-        
-        auditLogService.logEvent(
-                authenticationService.getUserByEmail(currentUser.getEmail()),
-                "WEBAUTHN_REGISTERED",
-                "USER",
-                currentUser.getId().toString(),
-                true,
-                request
-        );
-        
-        return ResponseEntity.ok(Map.of("message", "Passkey registered successfully"));
+        // TODO: Implement WebAuthn registration finish
+        return ResponseEntity.ok(Map.of("message", "Passkey registration not yet implemented"));
     }
 
     @PostMapping("/login/start")
     @Operation(summary = "Start WebAuthn login")
-    public ResponseEntity<PublicKeyCredentialCreationOptions> startLogin(@RequestBody Map<String, String> body) {
-        String username = body.get("username");
-        PublicKeyCredentialCreationOptions options = relyingParty.startLoginOptions(
-                com.yubico.webauthn.StartLoginOptions.builder()
-                        .username(username)
-                        .build()
-        );
-        return ResponseEntity.ok(options);
+    public ResponseEntity<Map<String, String>> startLogin(@RequestBody Map<String, String> body) {
+        // TODO: Implement WebAuthn login start
+        return ResponseEntity.ok(Map.of("message", "Passkey login not yet implemented"));
     }
 
     @PostMapping("/login/finish")
     @Operation(summary = "Complete WebAuthn login")
-    public ResponseEntity<JwtResponseDto> finishLogin(@RequestBody RegistrationResult result,
+    public ResponseEntity<Map<String, String>> finishLogin(@RequestBody Map<String, Object> credential,
                                                       HttpServletRequest request) {
-        relyingParty.finishLogin(result);
-        String username = result.getResponse().getUserHandle().getBase64();
-        var user = authenticationService.getUserService().findByUsername(username);
-        JwtResponseDto jwtResponse = authenticationService.generateTokens(user);
-        
-        auditLogService.logEvent(
-                authenticationService.getUserByEmail(user.getEmail()),
-                "WEBAUTHN_LOGIN",
-                "USER",
-                user.getId().toString(),
-                true,
-                request
-        );
-        
-        return ResponseEntity.ok(jwtResponse);
+        // TODO: Implement WebAuthn login finish
+        return ResponseEntity.ok(Map.of("message", "Passkey login not yet implemented"));
     }
 
     @DeleteMapping("/credentials/{credentialId}")

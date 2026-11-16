@@ -4,6 +4,7 @@ import com.maheshshinde.CryptEnv.dto.JwtResponseDto;
 import com.maheshshinde.CryptEnv.dto.UserResponseDto;
 import com.maheshshinde.CryptEnv.model.OAuthConnection;
 import com.maheshshinde.CryptEnv.model.User;
+import com.maheshshinde.CryptEnv.repository.UserRepository;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
 import com.maheshshinde.CryptEnv.service.AuthenticationService;
 import com.maheshshinde.CryptEnv.service.OAuthService;
@@ -26,6 +27,7 @@ public class OAuthController {
     private final OAuthService oauthService;
     private final AuthenticationService authenticationService;
     private final AuditLogService auditLogService;
+    private final UserRepository userRepository;
 
     @PostMapping("/callback/{provider}")
     @Operation(summary = "Handle OAuth callback from provider")
@@ -52,10 +54,12 @@ public class OAuthController {
                     );
                     oauthService.linkOAuth(newUser.getId(), provider, providerUserId, 
                             accessToken, refreshToken, null, email, name, avatarUrl);
-                    return authenticationService.getUserService().findById(newUser.getId());
+                    return userRepository.findByEmail(newUser.getEmail()).orElseThrow();
                 });
         
-        JwtResponseDto jwtResponse = authenticationService.generateTokens(user);
+        JwtResponseDto jwtResponse = authenticationService.authenticate(
+                new com.maheshshinde.CryptEnv.dto.UserLoginDto(email, null)
+        );
         
         auditLogService.logEvent(
                 authenticationService.getUserByEmail(user.getEmail()),

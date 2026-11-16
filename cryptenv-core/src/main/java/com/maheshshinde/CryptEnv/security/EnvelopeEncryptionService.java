@@ -25,7 +25,6 @@ public class EnvelopeEncryptionService {
 
     private final KeyProvider keyProvider;
     private final EncryptionService encryptionService;
-    private final AuditLogService auditLogService;
 
     @Value("${cryptenv.envelope-encryption.enabled:false}")
     private boolean envelopeEncryptionEnabled;

@@ -45,4 +45,7 @@ public interface SecretRepository extends JpaRepository<Secret, Long> {
     List<Secret> findByIsActiveTrueAndExpiresAtLessThanEqual(java.time.LocalDateTime now);
 
     List<Secret> findByIsDeletedTrueAndUpdatedAtLessThanEqual(java.time.LocalDateTime cutoffDate);
+
+    @Query("SELECT s FROM Secret s WHERE s.environment.workspace.id = :workspaceId")
+    List<Secret> findByWorkspaceId(@Param("workspaceId") Long workspaceId);
 }
