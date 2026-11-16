@@ -51,6 +51,8 @@ export const secretsAPI = {
   create: (data) => api.post('/secrets', data),
   update: (environmentId, key, data) =>
     api.put(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}`, data),
+  rotate: (environmentId, key) =>
+    api.post(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}/rotate`),
   delete: (key) => api.delete(`/secrets/${encodeURIComponent(key)}`),
 }
 
@@ -67,6 +69,9 @@ export const secretLifecycleAPI = {
     api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/auto-rotate/enable`),
   disableAutoRotate: (key) =>
     api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/auto-rotate/disable`),
+  setExpiration: (key, expiresAt) =>
+    api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/expiration`, null, { params: { expiresAt } }),
+  removeExpiration: (key) => api.delete(`/secrets/${encodeURIComponent(key)}/lifecycle/expiration`),
 }
 
 export const secretVersionAPI = {
@@ -75,6 +80,10 @@ export const secretVersionAPI = {
   rollback: (key, version) =>
     api.post(`/secrets/${encodeURIComponent(key)}/versions/rollback/${version}`),
   active: (key) => api.get(`/secrets/${encodeURIComponent(key)}/versions/active`),
+  diff: (environmentId, key, fromVersion, toVersion) =>
+    api.get(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}/versions/diff`, {
+      params: { fromVersion, toVersion },
+    }),
 }
 
 export const workspaceAPI = {
@@ -103,6 +112,7 @@ export const auditLogAPI = {
   getActionLogs: (action, params) => api.get(`/audit-logs/action/${action}`, { params }),
   getResourceLogs: (resourceType, resourceId, params) =>
     api.get(`/audit-logs/resource/${resourceType}/${resourceId}`, { params }),
+  export: (workspaceId, format = 'json') => api.get('/audit-logs/export', { params: { workspaceId, format }, responseType: 'text' }),
 }
 
 export const memberAPI = {
@@ -160,4 +170,27 @@ export const notificationsAPI = {
   markAllRead: () => api.post('/notifications/read-all'),
 }
 
+export const incidentsAPI = {
+  list: () => api.get('/incidents'),
+  create: (data) => api.post('/incidents', data),
+  status: (id, status, note) => api.post(`/incidents/${id}/status`, { status, note }),
+  quarantine: (id) => api.post(`/incidents/${id}/quarantine`),
+}
+
+export const leaksAPI = {
+  list: () => api.get('/leaks'),
+  scan: (data) => api.post('/leaks/scan', data),
+  update: (id, status) => api.patch(`/leaks/${id}`, { status }),
+}
+
 export default api
+
+export const cloudIntegrationsAPI = {
+  getTypes: () => api.get('/integrations/types'),
+  getWorkspaceIntegrations: (workspaceId) => api.get(`/integrations/workspace/${workspaceId}`),
+  getWorkspaceIntegrationsByCategory: (workspaceId, category) => api.get(`/integrations/workspace/${workspaceId}/category/${category}`),
+  connect: (data) => api.post('/integrations/connect', data),
+  disconnect: (data) => api.post('/integrations/disconnect', data),
+  sync: (integrationId, data) => api.post(`/integrations/${integrationId}/sync`, data),
+  getSyncLogs: (integrationId) => api.get(`/integrations/${integrationId}/sync-logs`),
+}
