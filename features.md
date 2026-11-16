@@ -13,92 +13,92 @@ Only unbuilt or incomplete work is listed. `(partial)` marks something that exis
 
 These are bugs or weaknesses in things already built. Several block later features.
 
-- [ ] **Rotation overwrites real secrets with junk.** `SecretRotationScheduler.generateNewSecretValue()` returns `"rotated_" + System.currentTimeMillis()`. Any secret with `autoRotate=true` gets its value replaced by that placeholder. Disable auto-rotate until real generators exist (see §5). `rotateSecret` is also a `protected @Transactional` method called from within the same class, so the annotation has no effect.
-- [ ] **Audit cleanup deletes the wrong logs.** `AuditLogService.deleteOldLogs(beforeDate)` calls `findByTimestampAfter` and deletes those rows, so it removes the newest logs. Use a `timestamp < cutoff` bulk delete.
-- [ ] **Roles are global per user, not per workspace.** `User.role` is a single enum; `inviteMember` adds a user with no workspace-scoped role. A user who is `OWNER` in one workspace is effectively `OWNER` everywhere. Needs a `workspace_members(workspace_id, user_id, role)` model.
-- [ ] **`SecurityService.isOwner()`, `isAdmin()`, `isDeveloper()` are identical** (all return true for OWNER/ADMIN/DEVELOPER), so they do not distinguish roles.
-- [ ] **API keys are stored in plaintext** (`ce_live_<uuid>`, looked up by equality) and grant the user's full access. Store a SHA-256 hash plus a visible prefix, show the key once, add scopes and expiry.
-- [ ] **Workspace key derivation has no KDF.** `EncryptionService.deriveKey` pads or truncates the UTF-8 passphrase to 32 bytes, so a 16-character key has 16 zero bytes. Move to Argon2id or PBKDF2 with a per-workspace salt, use a versioned ciphertext format, and add a migration path that stays compatible with the Node/Java SDKs.
-- [ ] **No AAD binding.** GCM ciphertext is not bound to `secretId:envId:version`, so a ciphertext can be moved between rows undetected.
-- [ ] **`MasterKeyService` is dead code using `AES/ECB`.** Nothing references it. Delete it.
-- [ ] **Rate limiter trusts `X-Forwarded-For` blindly** (spoofable) and never evicts entries from its in-memory map. Add a trusted-proxy setting and bucket eviction; move to Redis for multi-instance.
-- [ ] **JWTs last 24 h with no refresh and no revocation.** `/auth/logout` only writes an audit entry; the token stays valid.
-- [ ] **`docker-compose.yml` is inconsistent.** Postgres runs as user `postgres` while the healthcheck and app use `cryptenv`; `MASTER_ENCRYPTION_KEY` is missing (the app will not start); passwords are hard-coded; no dashboard service; the app mounts source over `/app`.
-- [ ] **CI only builds `cryptenv-core`.** The workflow does not build or test the dashboard, CLI, SDKs or extension, and has no dependency or secret scanning.
-- [ ] **Licence mismatch.** README says Apache 2.0; `cryptenv-vscode/package.json` says MIT. README versions (CLI 1.3.0, VS Code 1.2.1) also differ from the manifests (VS Code 1.4.0).
-- [ ] `secrets.value` and `secrets.encrypted_value` hold the same ciphertext. Drop one.
+- [x] **Rotation overwrites real secrets with junk.** `SecretRotationScheduler.generateNewSecretValue()` returns `"rotated_" + System.currentTimeMillis()`. Any secret with `autoRotate=true` gets its value replaced by that placeholder. Disable auto-rotate until real generators exist (see §5). `rotateSecret` is also a `protected @Transactional` method called from within the same class, so the annotation has no effect.
+- [x] **Audit cleanup deletes the wrong logs.** `AuditLogService.deleteOldLogs(beforeDate)` calls `findByTimestampAfter` and deletes those rows, so it removes the newest logs. Use a `timestamp < cutoff` bulk delete.
+- [x] **Roles are global per user, not per workspace.** `User.role` is a single enum; `inviteMember` adds a user with no workspace-scoped role. A user who is `OWNER` in one workspace is effectively `OWNER` everywhere. Needs a `workspace_members(workspace_id, user_id, role)` model.
+- [x] **`SecurityService.isOwner()`, `isAdmin()`, `isDeveloper()` are identical** (all return true for OWNER/ADMIN/DEVELOPER), so they do not distinguish roles.
+- [x] **API keys are stored in plaintext** (`ce_live_<uuid>`, looked up by equality) and grant the user's full access. Store a SHA-256 hash plus a visible prefix, show the key once, add scopes and expiry.
+- [x] **Workspace key derivation has no KDF.** `EncryptionService.deriveKey` pads or truncates the UTF-8 passphrase to 32 bytes, so a 16-character key has 16 zero bytes. Move to Argon2id or PBKDF2 with a per-workspace salt, use a versioned ciphertext format, and add a migration path that stays compatible with the Node/Java SDKs.
+- [x] **No AAD binding.** GCM ciphertext is not bound to `secretId:envId:version`, so a ciphertext can be moved between rows undetected.
+- [x] **`MasterKeyService` is dead code using `AES/ECB`.** Nothing references it. Delete it.
+- [x] **Rate limiter trusts `X-Forwarded-For` blindly** (spoofable) and never evicts entries from its in-memory map. Add a trusted-proxy setting and bucket eviction; move to Redis for multi-instance.
+- [x] **JWTs last 24 h with no refresh and no revocation.** `/auth/logout` only writes an audit entry; the token stays valid.
+- [x] **`docker-compose.yml` is inconsistent.** Postgres runs as user `postgres` while the healthcheck and app use `cryptenv`; `MASTER_ENCRYPTION_KEY` is missing (the app will not start); passwords are hard-coded; no dashboard service; the app mounts source over `/app`.
+- [x] **CI only builds `cryptenv-core`.** The workflow does not build or test the dashboard, CLI, SDKs or extension, and has no dependency or secret scanning.
+- [x] **Licence mismatch.** README says Apache 2.0; `cryptenv-vscode/package.json` says MIT. README versions (CLI 1.3.0, VS Code 1.2.1) also differ from the manifests (VS Code 1.4.0).
+- [x] `secrets.value` and `secrets.encrypted_value` hold the same ciphertext. Drop one.
 
 ---
 
 ## 1. Authentication & Identity
 
 - [ ] Email OTP verification at registration (resend-safe upsert)
-- [ ] Refresh tokens with rotation and reuse detection; short-lived access tokens (15 min)
-- [ ] Token revocation / session list and "sign out everywhere" (Redis or DB denylist)
-- [ ] TOTP MFA (RFC 6238) with encrypted seed and recovery codes
+- [x] Refresh tokens with rotation and reuse detection; short-lived access tokens (15 min)
+- [x] Token revocation / session list and "sign out everywhere" (Redis or DB denylist)
+- [x] TOTP MFA (RFC 6238) with encrypted seed and recovery codes
 - [ ] WebAuthn / FIDO2 passkeys with counter replay protection
-- [ ] **Step-up MFA** (5-minute token) for reveal, delete, rotate, production writes
+- [x] **Step-up MFA** (5-minute token) for reveal, delete, rotate, production writes
 - [ ] Migrate BCrypt to Argon2id with rehash-on-login
-- [ ] Account lockout and progressive delay (the `accountNonLocked` flag exists but nothing sets it)
-- [ ] Forgot / reset password flow
+- [x] Account lockout and progressive delay (the `accountNonLocked` flag exists but nothing sets it)
+- [x] Forgot / reset password flow
 - [ ] OAuth login: GitHub, Google
 - [ ] CLI device-code login (browser approval) instead of password prompt
 
 ## 2. Workspaces, Projects, Environments & Access Control
 
-- [ ] **Project layer**: Workspace → Project → Environment (currently Workspace → Environment)
-- [ ] Custom environments (`EnvironmentType` is a fixed enum of DEV/STAGING/PROD)
-- [ ] Per-workspace member roles (see §0); add `VIEWER`
-- [ ] Invitation flow with 256-bit token, 7-day expiry, email-locked acceptance (currently `inviteMember` adds an existing user directly)
+- [x] **Project layer**: Workspace → Project → Environment (currently Workspace → Environment)
+- [x] Custom environments (`EnvironmentType` is a fixed enum of DEV/STAGING/PROD)
+- [x] Per-workspace member roles (see §0); add `VIEWER`
+- [x] Invitation flow with 256-bit token, 7-day expiry, email-locked acceptance (currently `inviteMember` adds an existing user directly)
 - [ ] Member removal, role change, leave workspace
 - [ ] Sole-owner invariant and ownership transfer
-- [ ] Protected environments (`is_protected`): writes need ADMIN or active JIT grant
+- [x] Protected environments (`is_protected`): writes need ADMIN or active JIT grant
 - [ ] Project- and environment-scoped grants that can only narrow, never elevate
 - [ ] IDOR guards on every path: verify workspace → project → environment → secret ownership, return 404 on mismatch
-- [ ] **JIT access**: request with justification, 1–24 h, approval, auto-expiry job, `cryptenv jit` / `jit-run`
+- [x] **JIT access**: request with justification, 1–24 h, approval, auto-expiry job, `cryptenv jit` / `jit-run`
 - [ ] Quarterly access-certification reviews
 - [ ] Secret branches: branch, diff, merge secret sets (XtraSecurity `status` / active branch)
 - [ ] Permission matrix tests per role (`RBACIntegrationTest` exists; extend to workspace-scoped roles)
 
 ## 3. Cryptographic Engine
 
-- [ ] **Envelope encryption**: per-version random DEK wrapped by KEK; store wrapped DEK, IV, tag, algorithm/version tag
-- [ ] AAD binding (see §0)
-- [ ] `KeyProvider` interface (local Argon2id/PBKDF2 now; OpenBao/Vault Transit later)
+- [x] **Envelope encryption**: per-version random DEK wrapped by KEK; store wrapped DEK, IV, tag, algorithm/version tag
+- [x] AAD binding (see §0)
+- [x] `KeyProvider` interface (local Argon2id/PBKDF2 now; OpenBao/Vault Transit later)
 - [ ] Master-key rotation that re-wraps every workspace key automatically (today each workspace key must be re-set by hand)
 - [ ] Zeroize key and plaintext buffers after use
-- [ ] SHA-256 content fingerprint per version (needed for drift)
+- [x] SHA-256 content fingerprint per version (needed for drift)
 - [ ] **Zero-knowledge mode** per workspace: client-side AES-256-GCM, Argon2id passphrase KDF, server stores ciphertext only. Today the server holds the workspace key (wrapped) and returns plaintext from `/api/secrets`, so only the SDK path is client-side
 - [ ] Secure-by-default key recovery story for ZK mode (print recovery key once)
 
 ## 4. Secret Reveal Protection
 
-- [ ] Reveal endpoint gated by step-up token
-- [ ] `Cache-Control: no-store` on all secret responses
+- [x] Reveal endpoint gated by step-up token
+- [x] `Cache-Control: no-store` on all secret responses
 - [ ] GCM tag failure → reject + security event
 - [ ] Dashboard: mask by default, auto-hide timer, clipboard auto-clear
-- [ ] Dedicated `SECRET_REVEALED` audit entry with IP and user agent, separate from ordinary reads
+- [x] Dedicated `SECRET_REVEALED` audit entry with IP and user agent, separate from ordinary reads
 
 ## 5. Secret Lifecycle
 
 Built: versions, rollback, soft delete/restore, activate/deactivate, expiry, rotation interval and auto-rotate flags.
 
-- [ ] **Real rotation (partial)**: replace the placeholder generator (§0) with generators: random password, hex/base64 token, UUID, RSA/Ed25519 keypair
+- [x] **Real rotation (partial)**: replace the placeholder generator (§0) with generators: random password, hex/base64 token, UUID, RSA/Ed25519 keypair
 - [ ] Shadow rollout with configurable grace window (old and new valid together)
 - [ ] Blast-radius preview before rotation
 - [ ] Rotation history view and failure alerts
 - [ ] Expiry warnings (7 / 1 day) via notifications; currently expired secrets are only deactivated
 - [ ] Version diff view (dashboard and CLI)
 - [ ] Secret types: multiline, JSON, certificate, SSH key; tags
-- [ ] Import / export: `.env`, JSON, YAML, Docker secrets, Kubernetes `Secret`
+- [x] Import / export: `.env`, JSON, YAML, Docker secrets, Kubernetes `Secret`
 - [ ] Secret references (`${OTHER_KEY}`) and cross-environment inheritance
-- [ ] Bulk create/update endpoint
+- [x] Bulk create/update endpoint
 
 ## 6. Audit Ledger
 
 Built: audit log entity, filtered list endpoints, dashboard page, 44 call sites.
 
-- [ ] **SHA-256 hash chain** (each row stores previous hash) and a verify endpoint
+- [x] **SHA-256 hash chain** (each row stores previous hash) and a verify endpoint
 - [ ] Workspace-scoped audit queries (current endpoints filter by user, action, resource only)
 - [ ] Log MFA events, permission changes, invitations, API-key use, rotations
 - [ ] Export CSV / JSON; retention policy (after fixing §0)
@@ -109,7 +109,7 @@ Built: audit log entity, filtered list endpoints, dashboard page, 44 call sites.
 Built: per-user API key; `.github/workflows` builds the core only.
 
 - [ ] Machine identities separate from user accounts; scoped, expiring, revocable
-- [ ] API keys: hashed storage, scopes, expiry, last-used, rotate
+- [x] API keys: hashed storage, scopes, expiry, last-used, rotate
 - [ ] Keyless **OIDC federation** for GitHub Actions, GitLab CI, Kubernetes service accounts
 - [ ] `cryptenv oidc-link` command
 - [ ] **Workload key envelope** (ZK CI): X25519 keypair per workload, project key wrapped to its public key
@@ -138,11 +138,11 @@ Nothing built. The Notifications page is static.
 
 - [ ] Transactional outbox for domain events
 - [ ] SSE live feed to the dashboard; event replay
-- [ ] Automation rules (`ON event WHERE cond DO action`) with loop guard (max 3 fires / 60 s)
-- [ ] Four-eyes approval for destructive actions
+- [x] Automation rules (`ON event WHERE cond DO action`) with loop guard (max 3 fires / 60 s)
+- [x] Four-eyes approval for destructive actions
 - [ ] Outbound webhooks: HMAC-SHA256 signing, retries, delivery log, redelivery
 - [ ] Anti-SSRF: block private/link-local ranges, pin resolved IP to defeat DNS rebinding
-- [ ] Channels: email (SMTP), Slack / Discord webhook, in-app; per-user preferences
+- [x] Channels: email (SMTP), Slack / Discord webhook, in-app; per-user preferences
 
 ## 11. Incident Management
 
@@ -233,14 +233,14 @@ Built: landing, docs, login/register, overview, workspace, members, secrets list
 
 ## 19. Platform & DevOps
 
-- [ ] Fix `docker-compose.yml` (§0) and add dashboard, Redis, MailHog services
-- [ ] Redis-backed rate limiting (fail-closed) and trusted-proxy handling
+- [x] Fix `docker-compose.yml` (§0) and add dashboard, Redis, MailHog services
+- [x] Redis-backed rate limiting (fail-closed) and trusted-proxy handling
 - [ ] Security headers (CSP, HSTS, `X-Content-Type-Options`, frame options); stricter CORS
 - [ ] Spring Actuator + Prometheus metrics + Grafana dashboards
 - [ ] Structured JSON logs with secret-redaction filter
 - [ ] PostgreSQL backup/restore script
 - [ ] Integration tests with Testcontainers (current tests use H2, which hides Postgres-specific migrations such as the partial unique index in V15)
-- [ ] CI for all packages; dependency and secret scanning; SBOM
+- [x] CI for all packages; dependency and secret scanning; SBOM
 - [ ] Helm chart / Kubernetes manifests
 - [ ] Upgrade to Java 21 (currently 17) and Spring Boot 3.3+; remove Flyway enable/disable indirection if no longer needed
 - [ ] Docs folder: architecture, API reference, threat model, security policy (`docs/` only holds a screenshot)
