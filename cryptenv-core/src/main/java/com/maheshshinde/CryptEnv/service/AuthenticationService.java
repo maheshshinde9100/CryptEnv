@@ -11,10 +11,11 @@ import com.maheshshinde.CryptEnv.security.JwtTokenProvider;
 import com.maheshshinde.CryptEnv.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,9 +25,10 @@ public class AuthenticationService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final UserService userService;
+    private final TokenService tokenService;
+    private final AccountLockoutService accountLockoutService;
 
     public UserService getUserService() {
         return userService;
@@ -39,23 +41,80 @@ public class AuthenticationService {
 
     @Transactional
     public JwtResponseDto authenticate(UserLoginDto loginDto) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginDto.getEmail(),
-                        loginDto.getPassword()
-                )
-        );
+        User existing = userRepository.findByEmail(loginDto.getEmail()).orElse(null);
+        accountLockoutService.assertNotLocked(existing);
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String token = tokenProvider.generateToken(authentication);
-        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginDto.getEmail(),
+                            loginDto.getPassword()
+                    )
+            );
 
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+            User user = userRepository.findById(userPrincipal.getId())
+                    .orElseThrow(() -> new InvalidCredentialsException("User not found"));
+
+            accountLockoutService.clearLockout(user.getId());
+
+            if (Boolean.TRUE.equals(user.getMfaEnabled())) {
+                String mfaToken = tokenProvider.generateMfaChallengeToken(user.getId(), user.getEmail());
+                return JwtResponseDto.builder()
+                        .mfaRequired(true)
+                        .mfaToken(mfaToken)
+                        .userId(user.getId())
+                        .username(user.getUsername())
+                        .email(user.getEmail())
+                        .build();
+            }
+
+            TokenService.TokenPair pair = tokenService.issueTokenPair(user);
+
+            return JwtResponseDto.builder()
+                    .token(pair.accessToken())
+                    .refreshToken(pair.refreshToken())
+                    .expiresIn(tokenProvider.getAccessTokenTtlMs() / 1000)
+                    .userId(userPrincipal.getId())
+                    .username(userPrincipal.getUsername())
+                    .email(userPrincipal.getEmail())
+                    .mfaRequired(false)
+                    .build();
+        } catch (BadCredentialsException ex) {
+            if (existing != null) {
+                accountLockoutService.recordFailedLogin(existing.getId());
+            }
+            throw ex;
+        } catch (LockedException ex) {
+            accountLockoutService.assertNotLocked(existing);
+            throw ex;
+        }
+    }
+
+    @Transactional
+    public JwtResponseDto refresh(String refreshToken) {
+        TokenService.TokenPair pair = tokenService.rotateRefreshToken(refreshToken);
+        Long userId = tokenProvider.getUserIdFromToken(pair.accessToken());
+        User user = tokenService.requireUser(userId);
         return JwtResponseDto.builder()
-                .token(token)
-                .userId(userPrincipal.getId())
-                .username(userPrincipal.getUsername())
-                .email(userPrincipal.getEmail())
+                .token(pair.accessToken())
+                .refreshToken(pair.refreshToken())
+                .expiresIn(tokenProvider.getAccessTokenTtlMs() / 1000)
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
                 .build();
+    }
+
+    @Transactional
+    public void logout(String accessToken, boolean everywhere) {
+        if (accessToken != null && !accessToken.isBlank()) {
+            tokenService.revokeAccessToken(accessToken);
+            if (everywhere && tokenProvider.validateToken(accessToken)) {
+                tokenService.revokeAllSessions(tokenProvider.getUserIdFromToken(accessToken));
+            }
+        }
     }
 
     @Transactional(readOnly = true)

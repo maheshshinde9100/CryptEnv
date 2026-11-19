@@ -79,9 +79,25 @@ public class Secret {
     
     @Column(name = "updated_by_email")
     private String updatedByEmail;
-    
-    @Column(name = "encrypted_value", columnDefinition = "TEXT")
+
+    /**
+     * @deprecated Removed in V19 — use {@link #value} (ciphertext). Kept transient for in-memory
+     * compat during rollout of callers that still call getEncryptedValue().
+     */
+    @Deprecated
+    @Transient
     private String encryptedValue;
+
+    @Column(name = "content_fingerprint", length = 64)
+    private String contentFingerprint;
+
+    @Column(length = 500)
+    private String tags;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "secret_type", length = 50)
+    @Builder.Default
+    private SecretType secretType = SecretType.TEXT;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -90,4 +106,13 @@ public class Secret {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public enum SecretType {
+        TEXT,
+        MULTILINE,
+        JSON,
+        CERTIFICATE,
+        SSH_KEY,
+        BINARY
+    }
 }

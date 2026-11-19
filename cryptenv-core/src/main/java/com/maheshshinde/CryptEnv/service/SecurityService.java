@@ -49,23 +49,27 @@ public class SecurityService {
         return Permission.hasPermission(user.getRole(), permission);
     }
 
+    /** True only for OWNER (not ADMIN/DEVELOPER). */
     public boolean isOwner() {
-        Role role = getCurrentUserRole();
-        return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER;
+        return getCurrentUserRole() == Role.OWNER;
     }
 
+    /** True for OWNER or ADMIN. */
     public boolean isAdmin() {
         Role role = getCurrentUserRole();
-        return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER;
+        return role == Role.OWNER || role == Role.ADMIN;
     }
 
+    /** True for OWNER, ADMIN, or DEVELOPER. */
     public boolean isDeveloper() {
         Role role = getCurrentUserRole();
         return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER;
     }
 
+    /** True for any authenticated role that may read audit data. */
     public boolean isAuditor() {
         Role role = getCurrentUserRole();
-        return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER || role == Role.AUDITOR;
+        return role == Role.OWNER || role == Role.ADMIN || role == Role.DEVELOPER || role == Role.AUDITOR
+                || role == Role.VIEWER;
     }
 }

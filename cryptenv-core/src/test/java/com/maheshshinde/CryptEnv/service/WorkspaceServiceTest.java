@@ -4,9 +4,11 @@ import com.maheshshinde.CryptEnv.dto.WorkspaceCreateDto;
 import com.maheshshinde.CryptEnv.dto.WorkspaceResponseDto;
 import com.maheshshinde.CryptEnv.exception.ResourceAlreadyExistsException;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
+import com.maheshshinde.CryptEnv.model.Role;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.model.Workspace;
 import com.maheshshinde.CryptEnv.repository.UserRepository;
+import com.maheshshinde.CryptEnv.repository.WorkspaceMemberRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import com.maheshshinde.CryptEnv.security.UserPrincipal;
 import org.junit.jupiter.api.AfterEach;
@@ -33,6 +35,9 @@ class WorkspaceServiceTest {
 
     @Mock
     private WorkspaceRepository workspaceRepository;
+
+    @Mock
+    private WorkspaceMemberRepository workspaceMemberRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -68,7 +73,7 @@ class WorkspaceServiceTest {
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .ownedWorkspaces(new HashSet<>())
-                .memberWorkspaces(new HashSet<>())
+                .memberships(new HashSet<>())
                 .build();
 
         userPrincipal = UserPrincipal.builder()
@@ -87,7 +92,7 @@ class WorkspaceServiceTest {
                 .name("test-workspace")
                 .description("Test workspace")
                 .owner(user)
-                .members(new HashSet<>())
+                .memberships(new HashSet<>())
                 .environments(new HashSet<>())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -162,9 +167,10 @@ class WorkspaceServiceTest {
 
         when(workspaceRepository.findById(1L)).thenReturn(Optional.of(workspace));
         when(userRepository.findByEmail("member@example.com")).thenReturn(Optional.of(member));
+        when(workspaceMemberRepository.existsByWorkspaceIdAndUserId(1L, 2L)).thenReturn(false);
         when(workspaceRepository.save(any(Workspace.class))).thenReturn(workspace);
 
-        WorkspaceResponseDto result = workspaceService.inviteMember(1L, "member@example.com");
+        WorkspaceResponseDto result = workspaceService.inviteMember(1L, "member@example.com", Role.DEVELOPER);
 
         assertNotNull(result);
         verify(workspaceRepository, times(1)).save(any(Workspace.class));
@@ -175,6 +181,7 @@ class WorkspaceServiceTest {
         when(workspaceRepository.findById(1L)).thenReturn(Optional.of(workspace));
         when(userRepository.findByEmail("member@example.com")).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> workspaceService.inviteMember(1L, "member@example.com"));
+        assertThrows(ResourceNotFoundException.class,
+                () -> workspaceService.inviteMember(1L, "member@example.com", Role.DEVELOPER));
     }
 }

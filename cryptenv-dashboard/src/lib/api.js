@@ -35,6 +35,8 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   register: (data) => api.post('/auth/register', data),
+  verifyEmail: (email, code) => api.post('/auth/email-verification/verify', { email, code }),
+  resendVerification: (email) => api.post('/auth/email-verification/resend', { email }),
   logout: () => api.post('/auth/logout'),
   getCurrentUser: () => api.get('/auth/me'),
   regenerateApiKey: () => api.post('/auth/api-key/regenerate'),
@@ -49,6 +51,8 @@ export const secretsAPI = {
   create: (data) => api.post('/secrets', data),
   update: (environmentId, key, data) =>
     api.put(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}`, data),
+  rotate: (environmentId, key) =>
+    api.post(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}/rotate`),
   delete: (key) => api.delete(`/secrets/${encodeURIComponent(key)}`),
 }
 
@@ -65,6 +69,9 @@ export const secretLifecycleAPI = {
     api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/auto-rotate/enable`),
   disableAutoRotate: (key) =>
     api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/auto-rotate/disable`),
+  setExpiration: (key, expiresAt) =>
+    api.post(`/secrets/${encodeURIComponent(key)}/lifecycle/expiration`, null, { params: { expiresAt } }),
+  removeExpiration: (key) => api.delete(`/secrets/${encodeURIComponent(key)}/lifecycle/expiration`),
 }
 
 export const secretVersionAPI = {
@@ -73,6 +80,10 @@ export const secretVersionAPI = {
   rollback: (key, version) =>
     api.post(`/secrets/${encodeURIComponent(key)}/versions/rollback/${version}`),
   active: (key) => api.get(`/secrets/${encodeURIComponent(key)}/versions/active`),
+  diff: (environmentId, key, fromVersion, toVersion) =>
+    api.get(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}/versions/diff`, {
+      params: { fromVersion, toVersion },
+    }),
 }
 
 export const workspaceAPI = {
@@ -101,6 +112,7 @@ export const auditLogAPI = {
   getActionLogs: (action, params) => api.get(`/audit-logs/action/${action}`, { params }),
   getResourceLogs: (resourceType, resourceId, params) =>
     api.get(`/audit-logs/resource/${resourceType}/${resourceId}`, { params }),
+  export: (workspaceId, format = 'json') => api.get('/audit-logs/export', { params: { workspaceId, format }, responseType: 'text' }),
 }
 
 export const memberAPI = {
@@ -108,8 +120,77 @@ export const memberAPI = {
     api.post(`/workspaces/${workspaceId}/members`, null, { params: { email } }),
 }
 
+export const integrationsAPI = {
+  overview: () => api.get('/integrations'),
+  targets: (provider) => api.get(`/integrations/${provider}/targets`),
+  connect: (provider, data) => api.post(`/integrations/${provider}/connect`, data),
+  test: (provider) => api.post(`/integrations/${provider}/test`),
+  disconnect: (provider) => api.delete(`/integrations/${provider}`),
+  sync: (provider, data) => api.post(`/integrations/${provider}/sync`, data),
+  deleteSecret: (provider, data) => api.post(`/integrations/${provider}/delete-secret`, data),
+  jobs: () => api.get('/integrations/jobs'),
+  queue: () => api.get('/integrations/queue'),
+  replay: (id) => api.post(`/integrations/jobs/${id}/replay`),
+  export: (environmentId, format = 'env') =>
+    api.get(`/integrations/export/${environmentId}`, {
+      params: { format },
+      responseType: 'text',
+      transformResponse: (data) => data,
+    }),
+}
+
+export const driftAPI = {
+  scan: (environmentId) => api.post('/drift/scan', null, { params: { environmentId } }),
+  scans: () => api.get('/drift/scans'),
+  scanDetail: (id) => api.get(`/drift/scans/${id}`),
+  findings: (environmentId) =>
+    api.get('/drift/findings', { params: environmentId ? { environmentId } : undefined }),
+  remediate: (id) => api.post(`/drift/scans/${id}/remediate`),
+  report: (id, format = 'json') =>
+    api.get(`/drift/scans/${id}/report`, {
+      params: { format },
+      responseType: 'text',
+      transformResponse: (data) => data,
+    }),
+}
+
 export const healthAPI = {
   check: () => api.get('/health'),
 }
 
+export const postureAPI = {
+  current: () => api.get('/security-posture'),
+}
+
+export const notificationsAPI = {
+  list: (params) => api.get('/notifications', { params }),
+  preferences: () => api.get('/notifications/preferences'),
+  updatePreferences: (data) => api.put('/notifications/preferences', data),
+  markRead: (id) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
+
+export const incidentsAPI = {
+  list: () => api.get('/incidents'),
+  create: (data) => api.post('/incidents', data),
+  status: (id, status, note) => api.post(`/incidents/${id}/status`, { status, note }),
+  quarantine: (id) => api.post(`/incidents/${id}/quarantine`),
+}
+
+export const leaksAPI = {
+  list: () => api.get('/leaks'),
+  scan: (data) => api.post('/leaks/scan', data),
+  update: (id, status) => api.patch(`/leaks/${id}`, { status }),
+}
+
 export default api
+
+export const cloudIntegrationsAPI = {
+  getTypes: () => api.get('/integrations/types'),
+  getWorkspaceIntegrations: (workspaceId) => api.get(`/integrations/workspace/${workspaceId}`),
+  getWorkspaceIntegrationsByCategory: (workspaceId, category) => api.get(`/integrations/workspace/${workspaceId}/category/${category}`),
+  connect: (data) => api.post('/integrations/connect', data),
+  disconnect: (data) => api.post('/integrations/disconnect', data),
+  sync: (integrationId, data) => api.post(`/integrations/${integrationId}/sync`, data),
+  getSyncLogs: (integrationId) => api.get(`/integrations/${integrationId}/sync-logs`),
+}

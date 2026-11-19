@@ -19,7 +19,12 @@ public class UserResponseDto {
     private String firstName;
     private String lastName;
     private Boolean enabled;
+    /** Full key — only present immediately after create/regenerate; never stored. */
     private String apiKey;
+    /** Visible prefix for listing (e.g. ce_live_abcd1234). */
+    private String apiKeyPrefix;
+    private LocalDateTime apiKeyCreatedAt;
+    private LocalDateTime apiKeyExpiresAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

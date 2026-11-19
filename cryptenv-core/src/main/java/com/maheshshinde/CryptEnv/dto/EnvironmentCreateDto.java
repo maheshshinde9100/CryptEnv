@@ -16,6 +16,13 @@ public class EnvironmentCreateDto {
     @NotNull(message = "Environment type is required")
     private Environment.EnvironmentType name;
 
+    /** Display label (required for CUSTOM). */
+    private String label;
+
     @NotNull(message = "Workspace ID is required")
     private Long workspaceId;
+
+    private Long projectId;
+
+    private Boolean isProtected;
 }

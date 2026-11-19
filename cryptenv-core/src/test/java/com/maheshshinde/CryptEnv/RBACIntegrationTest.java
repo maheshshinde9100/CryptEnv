@@ -75,11 +75,14 @@ class RBACIntegrationTest {
 
     @Test
     void testRoleEnumValues() {
-        assertEquals(4, Role.values().length);
+        assertEquals(5, Role.values().length);
         assertEquals(Role.OWNER, Role.valueOf("OWNER"));
         assertEquals(Role.ADMIN, Role.valueOf("ADMIN"));
         assertEquals(Role.DEVELOPER, Role.valueOf("DEVELOPER"));
         assertEquals(Role.AUDITOR, Role.valueOf("AUDITOR"));
+        assertEquals(Role.VIEWER, Role.valueOf("VIEWER"));
+        assertTrue(Permission.hasPermission(Role.VIEWER, Permission.SECRET_READ));
+        assertFalse(Permission.hasPermission(Role.VIEWER, Permission.SECRET_WRITE));
     }
 
     @Test

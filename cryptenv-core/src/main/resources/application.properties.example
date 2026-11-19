@@ -70,7 +70,16 @@ spring.flyway.out-of-order=false
 # -------- Security & JWT --------
 # Generate: openssl rand -hex 32
 jwt.secret=${JWT_SECRET}
-jwt.expiration=${JWT_EXPIRATION:86400000}
+# Access token TTL (default 15 minutes)
+jwt.expiration=${JWT_EXPIRATION:900000}
+# Refresh token TTL (default 7 days)
+jwt.refresh-expiration-ms=${JWT_REFRESH_EXPIRATION:604800000}
+
+# -------- WebAuthn / Passkeys --------
+# Set these to the deployed dashboard/API hostnames when enabling passkeys in production.
+cryptenv.webauthn.rp-id=${WEBAUTHN_RP_ID:localhost}
+cryptenv.webauthn.rp-name=${WEBAUTHN_RP_NAME:CryptEnv}
+cryptenv.webauthn.origins=${WEBAUTHN_ORIGINS:http://localhost:5173,http://localhost:8080}
 
 # -------- Rate limiting (per client IP) --------
 cryptenv.rate-limit.enabled=${RATE_LIMIT_ENABLED:true}
@@ -78,11 +87,62 @@ cryptenv.rate-limit.capacity=${RATE_LIMIT_CAPACITY:120}
 cryptenv.rate-limit.refill-per-minute=${RATE_LIMIT_REFILL:120}
 cryptenv.rate-limit.auth-capacity=${RATE_LIMIT_AUTH_CAPACITY:30}
 cryptenv.rate-limit.auth-refill-per-minute=${RATE_LIMIT_AUTH_REFILL:30}
+# Only trust X-Forwarded-For / X-Real-IP when behind a known reverse proxy
+cryptenv.rate-limit.trust-proxy=${RATE_LIMIT_TRUST_PROXY:false}
 
 # -------- Master encryption key (wraps workspace keys only) --------
 # Generate: openssl rand -base64 32
 cryptenv.master-key=${MASTER_ENCRYPTION_KEY}
 encryption.master.key=${MASTER_ENCRYPTION_KEY}
+# Set true to write new secrets with PBKDF2 v2 ciphertext (decrypt still accepts v1)
+cryptenv.encryption.use-pbkdf2=${CRYPTENV_USE_PBKDF2:false}
+
+# -------- Envelope encryption (§3) --------
+# When true, each secret version uses a unique DEK wrapped by the workspace KEK.
+# This enables key rotation without re-encrypting all secrets. Default false for compatibility.
+cryptenv.envelope-encryption.enabled=${CRYPTENV_ENVELOPE_ENCRYPTION_ENABLED:false}
+
+# -------- Drift detection (§9) --------
+# Secrets not pushed to a provider within this many days are flagged STALE
+cryptenv.drift.stale-days=${CRYPTENV_DRIFT_STALE_DAYS:30}
+cryptenv.drift.cron=${CRYPTENV_DRIFT_CRON:0 30 3 * * *}
+
+# -------- Events & webhooks (§10) --------
+cryptenv.events.poll-ms=${CRYPTENV_EVENTS_POLL_MS:10000}
+cryptenv.events.initial-delay-ms=${CRYPTENV_EVENTS_INITIAL_DELAY_MS:15000}
+cryptenv.webhooks.enabled=${CRYPTENV_WEBHOOKS_ENABLED:true}
+cryptenv.webhooks.poll-ms=${CRYPTENV_WEBHOOKS_POLL_MS:10000}
+cryptenv.webhooks.initial-delay-ms=${CRYPTENV_WEBHOOKS_INITIAL_DELAY_MS:18000}
+
+# -------- Notifications (channels: in-app, email, Slack, Discord) --------
+# In-app notifications are always available; email/Slack/Discord are opt-in per user.
+cryptenv.notifications.enabled=${CRYPTENV_NOTIFICATIONS_ENABLED:true}
+cryptenv.notifications.from=${CRYPTENV_NOTIFICATIONS_FROM:no-reply@cryptenv.local}
+
+# -------- Automation rules (ON event WHERE condition DO action) --------
+# Each rule is capped at 3 fires per rolling 60s window to break event cascades.
+cryptenv.automations.enabled=${CRYPTENV_AUTOMATIONS_ENABLED:true}
+
+# -------- Four-eyes approval (destructive actions) --------
+# A request must be approved by a different owner/admin before it executes. Pending
+# requests expire after ttl-hours; a scheduled sweep marks stale ones EXPIRED.
+cryptenv.approvals.enabled=${CRYPTENV_APPROVALS_ENABLED:true}
+cryptenv.approvals.ttl-hours=${CRYPTENV_APPROVALS_TTL_HOURS:24}
+cryptenv.approvals.sweep-ms=${CRYPTENV_APPROVALS_SWEEP_MS:300000}
+cryptenv.approvals.sweep-initial-delay-ms=${CRYPTENV_APPROVALS_SWEEP_INITIAL_DELAY_MS:60000}
+
+# -------- Email (SMTP) --------
+# The JavaMailSender bean is created ONLY when spring.mail.host is set; otherwise the email
+# channel is skipped and the deployment still boots. Leave the block commented out to disable it.
+# On Render, set SPRING_MAIL_HOST / SPRING_MAIL_PORT / SPRING_MAIL_USERNAME / SPRING_MAIL_PASSWORD
+# (Spring Boot relaxed binding maps those env vars to the properties below).
+#spring.mail.host=smtp.example.com
+#spring.mail.port=587
+#spring.mail.username=
+#spring.mail.password=
+#spring.mail.properties.mail.smtp.auth=true
+#spring.mail.properties.mail.smtp.starttls.enable=true
+
 
 # -------- Swagger / OpenAPI --------
 springdoc.api-docs.path=/api-docs

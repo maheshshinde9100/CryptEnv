@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { secretsAPI } from '../lib/api'
+import { secretLifecycleAPI, secretsAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -16,23 +16,33 @@ export function SecretRotation() {
     queryFn: () => secretsAPI.list().then((res) => res.data),
   })
 
-  // Simulate rotation: in production this would call a dedicated rotation endpoint
   const rotateMutation = useMutation({
-    mutationFn: async (key) => {
-      setRotatingKey(key)
-      // Rotation: fetch current then update with a placeholder to trigger re-encryption
-      const current = await secretsAPI.get(key)
-      return secretsAPI.update(key, { value: current.data.value })
+    mutationFn: async (secret) => {
+      setRotatingKey(`${secret.environmentId}:${secret.key}`)
+      return secretsAPI.rotate(secret.environmentId, secret.key)
     },
-    onSuccess: (_, key) => {
-      queryClient.invalidateQueries(['secrets'])
-      toast.success(`Secret "${key}" rotated and re-encrypted successfully`)
+    onSuccess: (_, secret) => {
+      queryClient.invalidateQueries({ queryKey: ['secrets'] })
+      toast.success(`Secret "${secret.key}" rotated with a newly generated value`)
       setRotatingKey(null)
     },
-    onError: (_, key) => {
-      toast.error(`Failed to rotate secret "${key}"`)
+    onError: (_, secret) => {
+      toast.error(`Failed to rotate secret "${secret.key}"`)
       setRotatingKey(null)
     },
+  })
+
+  const autoRotateMutation = useMutation({
+    mutationFn: async (secret) => {
+      if (secret.autoRotate) return secretLifecycleAPI.disableAutoRotate(secret.key)
+      if (!secret.rotationIntervalDays) await secretLifecycleAPI.setRotationInterval(secret.key, 30)
+      return secretLifecycleAPI.enableAutoRotate(secret.key)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secrets'] })
+      toast.success('Automatic rotation policy updated')
+    },
+    onError: (error) => toast.error(error.response?.data?.message || 'Could not update rotation policy'),
   })
 
   const getAge = (createdAt) => {
@@ -44,11 +54,14 @@ export function SecretRotation() {
     return `${days} days ago`
   }
 
-  const getAgeStatus = (createdAt) => {
-    if (!createdAt) return 'unknown'
-    const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24))
-    if (days > 90) return 'overdue'
-    if (days > 30) return 'due'
+  const getAgeStatus = (secret) => {
+    const reference = secret.nextRotationAt || secret.lastRotatedAt || secret.createdAt
+    if (!reference) return 'unknown'
+    if (secret.nextRotationAt && new Date(secret.nextRotationAt).getTime() <= Date.now()) return 'overdue'
+    const interval = secret.rotationIntervalDays || 30
+    const days = Math.floor((Date.now() - new Date(reference).getTime()) / (1000 * 60 * 60 * 24))
+    if (!secret.nextRotationAt && days > interval * 3) return 'overdue'
+    if (!secret.nextRotationAt && days > interval) return 'due'
     return 'ok'
   }
 
@@ -67,7 +80,7 @@ export function SecretRotation() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Up-to-date</p>
-              <p className="text-2xl font-bold">{secrets?.filter(s => getAgeStatus(s.createdAt) === 'ok').length || 0}</p>
+              <p className="text-2xl font-bold">{secrets?.filter(s => getAgeStatus(s) === 'ok').length || 0}</p>
             </div>
           </CardContent>
         </Card>
@@ -78,7 +91,7 @@ export function SecretRotation() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Rotation Due</p>
-              <p className="text-2xl font-bold">{secrets?.filter(s => getAgeStatus(s.createdAt) === 'due').length || 0}</p>
+              <p className="text-2xl font-bold">{secrets?.filter(s => getAgeStatus(s) === 'due').length || 0}</p>
             </div>
           </CardContent>
         </Card>
@@ -89,7 +102,7 @@ export function SecretRotation() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Overdue</p>
-              <p className="text-2xl font-bold">{secrets?.filter(s => getAgeStatus(s.createdAt) === 'overdue').length || 0}</p>
+              <p className="text-2xl font-bold">{secrets?.filter(s => getAgeStatus(s) === 'overdue').length || 0}</p>
             </div>
           </CardContent>
         </Card>
@@ -102,7 +115,7 @@ export function SecretRotation() {
             Secrets Rotation Status
           </CardTitle>
           <CardDescription>
-            Re-encrypt secrets by rotating them. Secrets older than 30 days should be rotated. AES-256 GCM re-encryption is applied on each rotation.
+            Manual rotation generates a new type-aware value and re-encrypts it. Automatic rotation uses each secret’s configured policy.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,7 +126,8 @@ export function SecretRotation() {
           ) : secrets && secrets.length > 0 ? (
             <div className="space-y-3">
               {secrets.map((secret) => {
-                const status = getAgeStatus(secret.createdAt)
+                const status = getAgeStatus(secret)
+                const rotationId = `${secret.environmentId}:${secret.key}`
                 const statusColors = {
                   ok: 'bg-green-500/10 text-green-600',
                   due: 'bg-yellow-500/10 text-yellow-600',
@@ -128,7 +142,7 @@ export function SecretRotation() {
                       </div>
                       <div>
                         <p className="font-medium text-sm">{secret.key}</p>
-                        <p className="text-xs text-muted-foreground">Last rotated: {getAge(secret.createdAt)}</p>
+                        <p className="text-xs text-muted-foreground">Last rotated: {getAge(secret.lastRotatedAt || secret.createdAt)}{secret.nextRotationAt ? ` · Next: ${new Date(secret.nextRotationAt).toLocaleDateString()}` : ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -138,12 +152,20 @@ export function SecretRotation() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => rotateMutation.mutate(secret.key)}
-                        disabled={rotatingKey === secret.key}
+                        onClick={() => rotateMutation.mutate(secret)}
+                        disabled={rotatingKey === rotationId}
                         className="flex items-center gap-1.5"
                       >
-                        <RefreshCw className={`h-3.5 w-3.5 ${rotatingKey === secret.key ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-3.5 w-3.5 ${rotatingKey === rotationId ? 'animate-spin' : ''}`} />
                         Rotate
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={secret.autoRotate ? 'secondary' : 'outline'}
+                        onClick={() => autoRotateMutation.mutate(secret)}
+                        disabled={autoRotateMutation.isPending}
+                      >
+                        {secret.autoRotate ? 'Auto on' : 'Enable auto'}
                       </Button>
                     </div>
                   </div>

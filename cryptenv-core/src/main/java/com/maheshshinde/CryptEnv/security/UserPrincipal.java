@@ -27,6 +27,9 @@ public class UserPrincipal implements UserDetails {
     private Boolean credentialsNonExpired;
 
     public static UserPrincipal create(User user) {
+        // locked_until is the source of truth; expired locks are treated as unlocked
+        boolean lockedNow = user.getLockedUntil() != null
+                && user.getLockedUntil().isAfter(java.time.LocalDateTime.now());
         return UserPrincipal.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -34,7 +37,7 @@ public class UserPrincipal implements UserDetails {
                 .password(user.getPassword())
                 .enabled(user.getEnabled())
                 .accountNonExpired(user.getAccountNonExpired())
-                .accountNonLocked(user.getAccountNonLocked())
+                .accountNonLocked(!lockedNow)
                 .credentialsNonExpired(user.getCredentialsNonExpired())
                 .build();
     }

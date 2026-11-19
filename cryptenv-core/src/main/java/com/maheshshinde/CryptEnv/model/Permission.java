@@ -37,6 +37,9 @@ public enum Permission {
                 return permission == Permission.SECRET_READ ||
                        permission == Permission.WORKSPACE_READ ||
                        permission == Permission.AUDIT_READ;
+            case VIEWER:
+                return permission == Permission.SECRET_READ ||
+                       permission == Permission.WORKSPACE_READ;
             default:
                 return false;
         }

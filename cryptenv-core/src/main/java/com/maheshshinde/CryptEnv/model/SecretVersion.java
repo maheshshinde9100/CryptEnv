@@ -68,4 +68,37 @@ public class SecretVersion {
 
     @Column(name = "metadata", columnDefinition = "TEXT")
     private String metadata;
+
+    /** SHA-256 of plaintext (never stores plaintext). Used for drift detection. */
+    @Column(name = "content_fingerprint", length = 64)
+    private String contentFingerprint;
+
+    /**
+     * Envelope encryption: wrapped data encryption key (DEK) using workspace KEK.
+     * When null, falls back to direct workspace key encryption (legacy mode).
+     */
+    @Column(name = "wrapped_dek", columnDefinition = "TEXT")
+    private String wrappedDek;
+
+    /**
+     * Algorithm/version identifier for the wrapped DEK format.
+     * e.g., "v1:local-pbkdf2-sha256"
+     */
+    @Column(name = "dek_algorithm", length = 50)
+    private String dekAlgorithm;
+
+    /**
+     * IV used for DEK-based encryption of the secret value.
+     * Stored separately to allow rotation without re-encrypting the value.
+     */
+    @Column(name = "dek_iv", length = 64)
+    private String dekIv;
+
+    /**
+     * GCM authentication tag for the secret value (when using envelope encryption).
+     * Combined with ciphertext in encrypted_value for legacy, but stored separately
+     * for envelope mode to enable verification.
+     */
+    @Column(name = "dek_tag", length = 64)
+    private String dekTag;
 }

@@ -23,6 +23,13 @@ import {
   Activity,
   X,
   UserCircle2,
+  Plug,
+  Radar,
+  Bell,
+  ClipboardCheck,
+  Siren,
+  ScanSearch,
+  Shield,
 } from 'lucide-react'
 
 const navSections = [
@@ -32,6 +39,7 @@ const navSections = [
       { path: '/overview', icon: LayoutDashboard, label: 'Overview' },
       { path: '/workspace', icon: FolderKanban, label: 'Workspaces' },
       { path: '/secrets', icon: Lock, label: 'Secrets' },
+      { path: '/integrations', icon: Plug, label: 'Integrations' },
       { path: '/members', icon: Users, label: 'Members' },
     ],
   },
@@ -39,6 +47,12 @@ const navSections = [
     title: 'Security',
     items: [
       { path: '/rotation', icon: Activity, label: 'Rotation' },
+      { path: '/drift', icon: Radar, label: 'Drift Detection' },
+      { path: '/security-health', icon: Shield, label: 'Security Health' },
+      { path: '/access-requests', icon: KeyRound, label: 'Access Requests' },
+      { path: '/access-reviews', icon: ClipboardCheck, label: 'Access Reviews' },
+      { path: '/incidents', icon: Siren, label: 'Incidents' },
+      { path: '/leaks', icon: ScanSearch, label: 'Leak Findings' },
       { path: '/audit', icon: FileText, label: 'Audit Logs' },
       { path: '/settings', icon: KeyRound, label: 'API Keys' },
     ],
@@ -47,6 +61,7 @@ const navSections = [
     title: 'More',
     items: [
       { path: '/settings', icon: SettingsIcon, label: 'Settings' },
+      { path: '/notifications', icon: Bell, label: 'Notifications' },
       { path: '/about', icon: UserCircle2, label: 'About' },
       { path: '/docs/getting-started', icon: BookOpen, label: 'Documentation' },
     ],

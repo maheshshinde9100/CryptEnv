@@ -1,5 +1,6 @@
 package com.maheshshinde.CryptEnv.dto;
 
+import com.maheshshinde.CryptEnv.model.Role;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,8 @@ public class WorkspaceResponseDto {
     private Long ownerId;
     private String ownerUsername;
     private Set<String> memberUsernames;
+    private Set<WorkspaceMemberDto> members;
+    private Role currentUserRole;
     private Boolean hasEncryptionKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

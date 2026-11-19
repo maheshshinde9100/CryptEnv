@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cryptenv-sdk"
+version = "1.0.0"
+description = "CryptEnv Python SDK — fetch and decrypt workspace secrets client-side (AES-256-GCM)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Mahesh Shinde" }]
+keywords = ["cryptenv", "secrets", "security", "vault", "env"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "requests>=2.28",
+    "cryptography>=41.0",
+]
+
+[project.optional-dependencies]
+dotenv = ["python-dotenv>=1.0"]
+test = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/maheshshinde9100/CryptEnv"
+Repository = "https://github.com/maheshshinde9100/CryptEnv"
+
+[tool.setuptools.packages.find]
+include = ["cryptenv*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

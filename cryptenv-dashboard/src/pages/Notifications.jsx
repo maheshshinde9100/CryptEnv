@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { notificationsAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -46,13 +48,23 @@ export function Notifications() {
     return s
   })
   const [email, setEmail] = useState(true)
+  const queryClient = useQueryClient()
+  const { data: preferences } = useQuery({ queryKey: ['notification-preferences'], queryFn: () => notificationsAPI.preferences().then((res) => res.data) })
+  const { data: feed } = useQuery({ queryKey: ['notifications'], queryFn: () => notificationsAPI.list({ size: 8 }).then((res) => res.data) })
+  useEffect(() => { if (preferences) setEmail(Boolean(preferences.emailEnabled)) }, [preferences])
+  const saveMutation = useMutation({
+    mutationFn: (data) => notificationsAPI.updatePreferences(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notification-preferences'] }); toast.success('Notification preferences saved') },
+    onError: (error) => toast.error(error.response?.data?.message || 'Unable to save preferences'),
+  })
+  const readMutation = useMutation({ mutationFn: (id) => notificationsAPI.markRead(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }) })
 
   const toggle = (id) => {
     setSettings(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
   const handleSave = () => {
-    toast.success('Notification preferences saved!')
+    saveMutation.mutate({ emailEnabled: email, subscribedTypes: Object.entries(settings).filter(([, enabled]) => enabled).map(([type]) => type), minSeverity: 'INFO' })
   }
 
   return (
@@ -89,6 +101,17 @@ export function Notifications() {
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${email ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-primary" />Notification feed</CardTitle><CardDescription>Recent security and workspace events</CardDescription></CardHeader>
+        <CardContent className="space-y-2">
+          {(feed?.content || []).length === 0 ? <p className="text-sm text-muted-foreground">No notifications yet.</p> : (feed.content || []).map((item) => (
+            <button key={item.id} type="button" onClick={() => !item.read && readMutation.mutate(item.id)} className={`w-full text-left rounded-lg border p-3 ${item.read ? 'opacity-70' : 'bg-primary/5 border-primary/30'}`}>
+              <p className="text-sm font-semibold">{item.title}</p><p className="text-xs text-muted-foreground mt-1">{item.body || item.type}</p>
+            </button>
+          ))}
         </CardContent>
       </Card>
 

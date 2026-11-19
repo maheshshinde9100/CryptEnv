@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -97,5 +98,33 @@ public class AuditLogController {
         Page<AuditLog> logs = auditLogService.getResourceAuditLogs(resourceType, resourceId, pageable);
 
         return ResponseEntity.ok(logs);
+    }
+
+    @GetMapping("/workspace/{workspaceId}")
+    @Operation(summary = "Get audit logs scoped to a workspace")
+    public ResponseEntity<Page<AuditLog>> getWorkspaceAuditLogs(
+            @PathVariable Long workspaceId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        securityService.checkPermission(Permission.AUDIT_READ);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
+        return ResponseEntity.ok(auditLogService.getWorkspaceAuditLogs(workspaceId, pageable));
+    }
+
+    @GetMapping("/verify-chain")
+    @Operation(summary = "Verify the SHA-256 audit hash chain integrity")
+    public ResponseEntity<java.util.Map<String, Object>> verifyChain() {
+        securityService.checkPermission(Permission.AUDIT_READ);
+        return ResponseEntity.ok(auditLogService.verifyHashChain());
+    }
+
+    @GetMapping(value = "/export", produces = { MediaType.APPLICATION_JSON_VALUE, "text/csv" })
+    @Operation(summary = "Export tamper-evident audit evidence as JSON or CSV")
+    public ResponseEntity<String> export(@RequestParam(required = false) Long workspaceId,
+                                         @RequestParam(defaultValue = "json") String format) {
+        securityService.checkPermission(Permission.AUDIT_READ);
+        boolean csv = "csv".equalsIgnoreCase(format);
+        return ResponseEntity.ok().contentType(csv ? MediaType.valueOf("text/csv") : MediaType.APPLICATION_JSON)
+                .body(auditLogService.export(workspaceId, format));
     }
 }

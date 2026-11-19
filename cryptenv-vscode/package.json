@@ -458,7 +458,7 @@
     "url": "https://github.com/maheshshinde9100/CryptEnv/issues"
   },
   "homepage": "https://github.com/maheshshinde9100/CryptEnv/tree/main/cryptenv-vscode#readme",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "contributors": [
     {
       "name": "Mahesh Shinde",

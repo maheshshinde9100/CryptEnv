@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -21,10 +23,13 @@ import java.util.Set;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"ownedWorkspaces", "memberships", "password"})
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false, unique = true, length = 100)
@@ -45,6 +50,11 @@ public class User {
     @Builder.Default
     @Column(nullable = false)
     private Boolean enabled = true;
+
+    /** New accounts remain disabled until they prove control of their email address. */
+    @Builder.Default
+    @Column(name = "email_verified", nullable = false)
+    private Boolean emailVerified = false;
 
     @Builder.Default
     @Column(nullable = false)
@@ -70,15 +80,47 @@ public class User {
     @Builder.Default
     private Set<Workspace> ownedWorkspaces = new HashSet<>();
 
-    @ManyToMany(mappedBy = "members")
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private Set<Workspace> memberWorkspaces = new HashSet<>();
+    private Set<WorkspaceMember> memberships = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private Role role = Role.DEVELOPER;
 
-    @Column(name = "api_key", unique = true, length = 255)
+    /** Legacy plaintext column — kept nullable for migration; prefer apiKeyHash. */
+    @Column(name = "api_key", length = 255)
     private String apiKey;
+
+    @Column(name = "api_key_hash", length = 64, unique = true)
+    private String apiKeyHash;
+
+    @Column(name = "api_key_prefix", length = 32)
+    private String apiKeyPrefix;
+
+    @Column(name = "api_key_created_at")
+    private LocalDateTime apiKeyCreatedAt;
+
+    @Column(name = "api_key_expires_at")
+    private LocalDateTime apiKeyExpiresAt;
+
+    @Builder.Default
+    @Column(name = "failed_login_attempts", nullable = false)
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
+    @Builder.Default
+    @Column(name = "mfa_enabled", nullable = false)
+    private Boolean mfaEnabled = false;
+
+    /** AES-GCM ciphertext of the Base32 TOTP seed (master-key encrypted). */
+    @Column(name = "mfa_secret", columnDefinition = "TEXT")
+    private String mfaSecret;
+
+    /** Comma-separated SHA-256 hashes of one-time recovery codes. */
+    @Column(name = "mfa_recovery_codes", columnDefinition = "TEXT")
+    private String mfaRecoveryCodes;
 }

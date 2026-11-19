@@ -4,7 +4,8 @@ import { auditLogAPI } from '../lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
 import { Input } from '../components/ui/input'
-import { Activity, ShieldAlert, User, Clock, FileText } from 'lucide-react'
+import { Activity, ShieldAlert, User, Clock, FileText, Download } from 'lucide-react'
+import { Button } from '../components/ui/button'
 
 export function AuditLogs() {
   const [filterAction, setFilterAction] = useState('')
@@ -14,9 +15,15 @@ export function AuditLogs() {
     queryFn: () => auditLogAPI.list().then((res) => res.data),
   })
 
-  const filteredLogs = logs?.filter((log) =>
+  const logRows = logs?.content || logs || []
+  const filteredLogs = logRows.filter((log) =>
     filterAction ? log.action?.toLowerCase().includes(filterAction.toLowerCase()) || log.details?.toLowerCase().includes(filterAction.toLowerCase()) : true
   )
+  const download = async (format) => {
+    const result = await auditLogAPI.export(undefined, format)
+    const url = URL.createObjectURL(new Blob([result.data], { type: format === 'csv' ? 'text/csv' : 'application/json' }))
+    const link = document.createElement('a'); link.href = url; link.download = `cryptenv-audit.${format}`; link.click(); URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6">
@@ -25,6 +32,7 @@ export function AuditLogs() {
           <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
           <p className="text-muted-foreground">Track security events, access logs, and system modifications</p>
         </div>
+        <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => download('json')}><Download className="h-4 w-4 mr-1" />JSON</Button><Button variant="outline" size="sm" onClick={() => download('csv')}><Download className="h-4 w-4 mr-1" />CSV</Button></div>
       </div>
 
       <Card>

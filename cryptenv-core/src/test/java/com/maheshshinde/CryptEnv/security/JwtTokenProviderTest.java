@@ -38,7 +38,7 @@ class JwtTokenProviderTest {
                 .accountNonLocked(true)
                 .credentialsNonExpired(true)
                 .ownedWorkspaces(new HashSet<>())
-                .memberWorkspaces(new HashSet<>())
+                .memberships(new HashSet<>())
                 .createdAt(LocalDateTime.now())
                 .build();
         return UserPrincipal.create(user);

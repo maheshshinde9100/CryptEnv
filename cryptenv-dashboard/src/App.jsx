@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
+import { VerifyEmail } from './pages/VerifyEmail'
 import { Dashboard } from './pages/Dashboard'
 import { Secrets } from './pages/Secrets'
 import { SecretEditor } from './pages/SecretEditor'
@@ -12,6 +13,16 @@ import { Settings } from './pages/Settings'
 import { Members } from './pages/Members'
 import { AuditLogs } from './pages/AuditLogs'
 import { SecretRotation } from './pages/SecretRotation'
+import { Integrations } from './pages/Integrations'
+import { Drift } from './pages/Drift'
+import { SecurityHealth } from './pages/SecurityHealth'
+import { Notifications } from './pages/Notifications'
+import { AccessRequests } from './pages/AccessRequests'
+import { AccessReviews } from './pages/AccessReviews'
+import { Subscription } from './pages/Subscription'
+import { Incidents } from './pages/Incidents'
+import { Leaks } from './pages/Leaks'
+import { SecretHistory } from './pages/SecretHistory'
 import { About } from './pages/About'
 import { DocsLayout } from './pages/docs/DocsLayout'
 
@@ -30,6 +41,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         <Route
           path="/docs"
@@ -56,7 +68,17 @@ function App() {
           <Route path="/secrets" element={<Secrets />} />
           <Route path="/secrets/new" element={<SecretEditor />} />
           <Route path="/secrets/:key/edit" element={<SecretEditor />} />
+          <Route path="/secrets/:key/history" element={<SecretHistory />} />
           <Route path="/rotation" element={<SecretRotation />} />
+          <Route path="/integrations" element={<Integrations />} />
+          <Route path="/drift" element={<Drift />} />
+          <Route path="/security-health" element={<SecurityHealth />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/access-requests" element={<AccessRequests />} />
+          <Route path="/access-reviews" element={<AccessReviews />} />
+          <Route path="/subscription" element={<Subscription />} />
+          <Route path="/incidents" element={<Incidents />} />
+          <Route path="/leaks" element={<Leaks />} />
           <Route path="/audit" element={<AuditLogs />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />

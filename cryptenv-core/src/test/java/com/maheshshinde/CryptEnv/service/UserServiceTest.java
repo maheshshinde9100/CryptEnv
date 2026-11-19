@@ -30,6 +30,9 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
     @InjectMocks
     private UserService userService;
 
@@ -53,7 +56,9 @@ class UserServiceTest {
                 .password("encodedPassword")
                 .firstName("Test")
                 .lastName("User")
-                .apiKey("test-dummy-api-key-NOT-A-REAL-ONE")
+                .apiKey(null)
+                .apiKeyHash("abc123")
+                .apiKeyPrefix("ce_live_abcd1234")
                 .enabled(true)
                 .accountNonExpired(true)
                 .accountNonLocked(true)
@@ -68,13 +73,21 @@ class UserServiceTest {
         when(userRepository.existsByEmail(registrationDto.getEmail())).thenReturn(false);
         when(userRepository.existsByUsername(registrationDto.getUsername())).thenReturn(false);
         when(passwordEncoder.encode(registrationDto.getPassword())).thenReturn("encodedPassword");
-        when(userRepository.save(any(User.class))).thenReturn(user);
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+            User saved = inv.getArgument(0);
+            saved.setId(1L);
+            saved.setCreatedAt(LocalDateTime.now());
+            saved.setUpdatedAt(LocalDateTime.now());
+            return saved;
+        });
 
         UserResponseDto result = userService.registerUser(registrationDto);
 
         assertNotNull(result);
         assertEquals("test@example.com", result.getEmail());
         assertEquals("testuser", result.getUsername());
+        assertNotNull(result.getApiKey(), "Raw API key must be shown once on register");
+        assertTrue(result.getApiKey().startsWith("ce_live_"));
         verify(userRepository, times(1)).save(any(User.class));
     }
 

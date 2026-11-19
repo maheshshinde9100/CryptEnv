@@ -29,8 +29,8 @@ export function Register() {
         lastName: form.lastName,
       }),
     onSuccess: () => {
-      toast.success('Account created — sign in to continue')
-      navigate('/login')
+      toast.success('Account created — check your inbox for the verification code')
+      navigate(`/verify-email?email=${encodeURIComponent(form.email)}`)
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Registration failed')

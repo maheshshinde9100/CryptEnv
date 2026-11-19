@@ -28,10 +28,10 @@ public interface SecretRepository extends JpaRepository<Secret, Long> {
     @Query("SELECT s FROM Secret s WHERE s.key = :key AND s.environment.workspace.owner.id = :ownerId")
     List<Secret> findByKeyAndEnvironmentWorkspaceOwnerId(@Param("key") String key, @Param("ownerId") Long ownerId);
 
-    @Query("SELECT s FROM Secret s WHERE s.environment.workspace.owner.id = :userId OR EXISTS (SELECT m FROM s.environment.workspace.members m WHERE m.id = :userId)")
+    @Query("SELECT s FROM Secret s WHERE s.environment.workspace.owner.id = :userId OR EXISTS (SELECT m FROM s.environment.workspace.memberships m WHERE m.user.id = :userId)")
     List<Secret> findByEnvironmentWorkspaceOwnerOrMemberId(@Param("userId") Long userId);
 
-    @Query("SELECT s FROM Secret s WHERE s.key = :key AND (s.environment.workspace.owner.id = :userId OR EXISTS (SELECT m FROM s.environment.workspace.members m WHERE m.id = :userId))")
+    @Query("SELECT s FROM Secret s WHERE s.key = :key AND (s.environment.workspace.owner.id = :userId OR EXISTS (SELECT m FROM s.environment.workspace.memberships m WHERE m.user.id = :userId))")
     List<Secret> findByKeyAndEnvironmentWorkspaceOwnerOrMemberId(@Param("key") String key, @Param("userId") Long userId);
 
     @Query("SELECT s FROM Secret s WHERE s.environment.workspace.id = :workspaceId")
@@ -45,4 +45,7 @@ public interface SecretRepository extends JpaRepository<Secret, Long> {
     List<Secret> findByIsActiveTrueAndExpiresAtLessThanEqual(java.time.LocalDateTime now);
 
     List<Secret> findByIsDeletedTrueAndUpdatedAtLessThanEqual(java.time.LocalDateTime cutoffDate);
+
+    @Query("SELECT s FROM Secret s WHERE s.environment.workspace.id = :workspaceId")
+    List<Secret> findByWorkspaceId(@Param("workspaceId") Long workspaceId);
 }
