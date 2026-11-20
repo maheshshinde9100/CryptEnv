@@ -37,9 +37,14 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   verifyEmail: (email, code) => api.post('/auth/email-verification/verify', { email, code }),
   resendVerification: (email) => api.post('/auth/email-verification/resend', { email }),
-  logout: () => api.post('/auth/logout'),
+  logout: (everywhere = false) => api.post('/auth/logout', null, { params: { everywhere } }),
   getCurrentUser: () => api.get('/auth/me'),
   regenerateApiKey: () => api.post('/auth/api-key/regenerate'),
+  mfaSetup: () => api.post('/auth/mfa/setup'),
+  mfaEnable: (code) => api.post('/auth/mfa/enable', { code }),
+  mfaDisable: (data) => api.post('/auth/mfa/disable', data),
+  stepUp: () => api.post('/auth/mfa/step-up'),
+  verifyStepUp: (stepUpToken, totpCode) => api.post('/auth/mfa/step-up/verify', { stepUpToken, totpCode }),
 }
 
 export const secretsAPI = {
@@ -48,12 +53,23 @@ export const secretsAPI = {
   get: (key) => api.get(`/secrets/${encodeURIComponent(key)}`),
   getByEnvironment: (environmentId, key) =>
     api.get(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}`),
+  reveal: (environmentId, key, data = {}) =>
+    api.post(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}/reveal`, data),
   create: (data) => api.post('/secrets', data),
   update: (environmentId, key, data) =>
     api.put(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}`, data),
   rotate: (environmentId, key) =>
     api.post(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}/rotate`),
   delete: (key) => api.delete(`/secrets/${encodeURIComponent(key)}`),
+  deleteFromEnvironment: (environmentId, key) =>
+    api.delete(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}`),
+  import: (environmentId, format, content) => api.post('/secrets/import', { environmentId, format, content }),
+  export: (environmentId, format = 'ENV') =>
+    api.get('/secrets/export', { params: { environmentId, format }, responseType: 'text', transformResponse: (data) => data }),
+  diff: (environmentId, key, fromVersion, toVersion) =>
+    api.get(`/secrets/environment/${environmentId}/${encodeURIComponent(key)}/versions/diff`, {
+      params: { fromVersion, toVersion },
+    }),
 }
 
 export const secretLifecycleAPI = {
@@ -94,16 +110,49 @@ export const workspaceAPI = {
   setEncryptionKey: (id, workspaceEncryptionKey) =>
     api.put(`/workspaces/${id}/encryption-key`, { workspaceEncryptionKey }),
   delete: (id) => api.delete(`/workspaces/${id}`),
-  inviteMember: (id, email) =>
-    api.post(`/workspaces/${id}/members`, null, { params: { email } }),
+  inviteMember: (id, email, role = 'DEVELOPER') =>
+    api.post(`/workspaces/${id}/members`, null, { params: { email, role } }),
+  changeMemberRole: (id, userId, role) =>
+    api.put(`/workspaces/${id}/members/${userId}/role`, null, { params: { role } }),
+  removeMember: (id, userId) => api.delete(`/workspaces/${id}/members/${userId}`),
+  leave: (id) => api.post(`/workspaces/${id}/leave`),
+  transferOwnership: (id, newOwnerUserId) =>
+    api.post(`/workspaces/${id}/transfer-ownership`, { newOwnerUserId }),
 }
 
 export const environmentAPI = {
   list: (workspaceId) => api.get(`/environments/workspace/${workspaceId}`),
   create: (data) => api.post('/environments', data),
   get: (id) => api.get(`/environments/${id}`),
+  update: (id, data) => api.patch(`/environments/${id}`, data),
   toggle: (id) => api.patch(`/environments/${id}/toggle`),
   delete: (id) => api.delete(`/environments/${id}`),
+}
+
+export const jitAPI = {
+  request: (data) => api.post('/jit/request', data),
+  approve: (id) => api.post(`/jit/${id}/approve`),
+  deny: (id) => api.post(`/jit/${id}/deny`),
+  list: (workspaceId) => api.get(`/jit/workspace/${workspaceId}`),
+}
+
+export const approvalsAPI = {
+  supported: () => api.get('/approvals/supported'),
+  mine: () => api.get('/approvals'),
+  pending: () => api.get('/approvals/pending'),
+  request: (data) => api.post('/approvals', data),
+  approve: (id, note) => api.post(`/approvals/${id}/approve`, { note }),
+  reject: (id, note) => api.post(`/approvals/${id}/reject`, { note }),
+  cancel: (id) => api.post(`/approvals/${id}/cancel`),
+}
+
+export const accessReviewsAPI = {
+  list: (workspaceId) => api.get(`/access-reviews/workspace/${workspaceId}`),
+  create: (data) => api.post('/access-reviews', data),
+  items: (reviewId) => api.get(`/access-reviews/${reviewId}/items`),
+  reviewItem: (itemId, status, comment) =>
+    api.post(`/access-reviews/items/${itemId}/review`, { status, comment }),
+  complete: (reviewId) => api.post(`/access-reviews/${reviewId}/complete`),
 }
 
 export const auditLogAPI = {
@@ -116,8 +165,8 @@ export const auditLogAPI = {
 }
 
 export const memberAPI = {
-  invite: (workspaceId, email) =>
-    api.post(`/workspaces/${workspaceId}/members`, null, { params: { email } }),
+  invite: (workspaceId, email, role = 'DEVELOPER') =>
+    api.post(`/workspaces/${workspaceId}/members`, null, { params: { email, role } }),
 }
 
 export const integrationsAPI = {
@@ -172,9 +221,11 @@ export const notificationsAPI = {
 
 export const incidentsAPI = {
   list: () => api.get('/incidents'),
+  get: (id) => api.get(`/incidents/${id}`),
   create: (data) => api.post('/incidents', data),
   status: (id, status, note) => api.post(`/incidents/${id}/status`, { status, note }),
   quarantine: (id) => api.post(`/incidents/${id}/quarantine`),
+  postMortem: (id, content) => api.post(`/incidents/${id}/post-mortem`, { content }),
 }
 
 export const leaksAPI = {
