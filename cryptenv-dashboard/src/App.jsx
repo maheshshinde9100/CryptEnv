@@ -19,7 +19,6 @@ import { SecurityHealth } from './pages/SecurityHealth'
 import { Notifications } from './pages/Notifications'
 import { AccessRequests } from './pages/AccessRequests'
 import { AccessReviews } from './pages/AccessReviews'
-import { Subscription } from './pages/Subscription'
 import { Incidents } from './pages/Incidents'
 import { Leaks } from './pages/Leaks'
 import { SecretHistory } from './pages/SecretHistory'
@@ -76,7 +75,6 @@ function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/access-requests" element={<AccessRequests />} />
           <Route path="/access-reviews" element={<AccessReviews />} />
-          <Route path="/subscription" element={<Subscription />} />
           <Route path="/incidents" element={<Incidents />} />
           <Route path="/leaks" element={<Leaks />} />
           <Route path="/audit" element={<AuditLogs />} />
