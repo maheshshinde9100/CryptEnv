@@ -202,14 +202,15 @@ export function Landing() {
               className="hero-rise text-4xl font-light leading-[1.1] tracking-[-0.03em] sm:text-6xl"
               style={{ '--rise-delay': '70ms' }}
             >
-              Build without secrets leaking
+              Ship software without leaking secrets
             </h1>
             <p
               className="hero-rise mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
               style={{ '--rise-delay': '150ms' }}
             >
-              CryptEnv is a secrets platform for teams. Store API keys and database URLs encrypted in the cloud,
-              then inject them at runtime through the dashboard, CLI, editor or SDKs.
+              CryptEnv is the encrypted vault for team credentials. API keys, database URLs and tokens stay
+              encrypted in the cloud and are injected only where they are needed — from the dashboard, CLI,
+              editor or SDKs. No .env files, nothing in git.
             </p>
             <div className="hero-rise flex flex-wrap items-center justify-center gap-3" style={{ '--rise-delay': '230ms' }}>
               <Link
