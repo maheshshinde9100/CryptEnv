@@ -5,7 +5,6 @@ import { driftAPI, environmentAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { Label } from '../components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { Skeleton } from '../components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
@@ -15,23 +14,23 @@ import {
 } from 'lucide-react'
 
 const classificationStyles = {
-  IN_SYNC: 'bg-green-500/10 text-green-600 border-green-500/30',
-  STALE: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
-  MODIFIED: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
-  MISSING: 'bg-red-500/10 text-red-600 border-red-500/30',
+  IN_SYNC: 'text-muted-foreground',
+  STALE: 'text-ink',
+  MODIFIED: 'text-ink',
+  MISSING: 'text-danger',
 }
 
 const scanStatusStyles = {
-  RUNNING: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
-  COMPLETED: 'bg-green-500/10 text-green-600 border-green-500/30',
-  FAILED: 'bg-red-500/10 text-red-600 border-red-500/30',
+  RUNNING: 'text-ink',
+  COMPLETED: 'text-muted-foreground',
+  FAILED: 'text-danger',
 }
 
 const classificationMeta = [
-  { key: 'inSync', label: 'In sync', icon: CheckCircle2, tone: 'text-green-600' },
-  { key: 'stale', label: 'Stale', icon: Clock, tone: 'text-yellow-600' },
-  { key: 'modified', label: 'Modified', icon: AlertTriangle, tone: 'text-orange-600' },
-  { key: 'missing', label: 'Missing', icon: XCircle, tone: 'text-red-600' },
+  { key: 'inSync', label: 'In sync', icon: CheckCircle2, tone: 'text-muted-foreground' },
+  { key: 'stale', label: 'Stale', icon: Clock, tone: 'text-ink' },
+  { key: 'modified', label: 'Modified', icon: AlertTriangle, tone: 'text-ink' },
+  { key: 'missing', label: 'Missing', icon: XCircle, tone: 'text-danger' },
 ]
 
 function formatDate(value) {
@@ -129,25 +128,26 @@ export function Drift() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Drift Detection</h1>
-          <p className="text-muted-foreground">
+          <p className="eyebrow">Security</p>
+          <h1 className="page-title mt-3">Drift detection</h1>
+          <p className="page-subtitle">
             Fingerprint-only comparison between CryptEnv and values pushed to providers
           </p>
         </div>
         <Button variant="outline" onClick={() => invalidate()} disabled={scansLoading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${scansLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${scansLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
+      </header>
 
       {/* Run scan */}
-      <section className="glass-panel rounded-2xl p-5 sm:p-6 space-y-4">
+      <section className="rounded-lg border border-border p-5 sm:p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Radar className="h-5 w-5 text-primary" />
+          <Radar className="h-4 w-4 text-muted-foreground" />
           <div>
-            <h2 className="font-semibold">Run a scan</h2>
+            <h2 className="text-base">Run a scan</h2>
             <p className="text-sm text-muted-foreground">
               Compares current secret fingerprints against the last pushed state. No plaintext leaves the server.
             </p>
@@ -182,18 +182,18 @@ export function Drift() {
       {activeScan && (
         <section className="grid gap-3 grid-cols-2 lg:grid-cols-5">
           {classificationMeta.map(({ key, label, icon: Icon, tone }) => (
-            <div key={key} className="glass-panel rounded-xl p-4">
+            <div key={key} className="rounded-lg border border-border p-4">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                <p className="text-xs text-muted-foreground">{label}</p>
                 <Icon className={`h-4 w-4 ${tone}`} />
               </div>
               <p className="text-2xl font-semibold mt-1">{activeScan[key] ?? 0}</p>
             </div>
           ))}
-          <div className="glass-panel rounded-xl p-4">
+          <div className="rounded-lg border border-border p-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Total</p>
-              <ShieldCheck className="h-4 w-4 text-primary" />
+              <p className="text-xs text-muted-foreground">Total</p>
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             </div>
             <p className="text-2xl font-semibold mt-1">{activeScan.total ?? findings.length}</p>
           </div>
@@ -204,7 +204,7 @@ export function Drift() {
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-primary" />
+            <AlertTriangle className="h-5 w-5 text-muted-foreground" />
             <div>
               <h2 className="font-semibold">
                 Findings{activeScan?.id ? ` · scan #${activeScan.id}` : ''}
@@ -234,7 +234,7 @@ export function Drift() {
               </Button>
               <Button
                 size="sm"
-                className="brand-gradient text-white border-0"
+                className=""
                 onClick={() => remediateMutation.mutate(activeScan.id)}
                 disabled={remediateMutation.isPending || actionable === 0}
               >
@@ -250,17 +250,17 @@ export function Drift() {
         </div>
 
         {detailLoading ? (
-          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-lg" />
         ) : findings.length === 0 ? (
-          <div className="glass-panel rounded-2xl p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
             No findings yet. Run a scan against an environment that has pushed secrets to a provider.
           </div>
         ) : (
-          <div className="glass-panel rounded-2xl overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b border-border/70 bg-muted/40">
-                  <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr className="text-left text-xs text-muted-foreground">
                     <th className="px-4 py-3 font-medium">Secret key</th>
                     <th className="px-4 py-3 font-medium">Provider</th>
                     <th className="px-4 py-3 font-medium">Target</th>
@@ -301,7 +301,7 @@ export function Drift() {
       {/* Scan history */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <History className="h-5 w-5 text-primary" />
+          <History className="h-5 w-5 text-muted-foreground" />
           <div>
             <h2 className="font-semibold">Scan history</h2>
             <p className="text-sm text-muted-foreground">Manual and scheduled scans, newest first</p>
@@ -309,17 +309,17 @@ export function Drift() {
         </div>
 
         {scansLoading ? (
-          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-lg" />
         ) : scans.length === 0 ? (
-          <div className="glass-panel rounded-2xl p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
             No scans yet. Run your first scan above.
           </div>
         ) : (
-          <div className="glass-panel rounded-2xl overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b border-border/70 bg-muted/40">
-                  <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr className="text-left text-xs text-muted-foreground">
                     <th className="px-4 py-3 font-medium">Scan</th>
                     <th className="px-4 py-3 font-medium">Env</th>
                     <th className="px-4 py-3 font-medium">Trigger</th>
@@ -388,12 +388,12 @@ export function Drift() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {classificationMeta.map(({ key, label }) => (
               <div key={key} className="rounded-xl border border-border/70 p-3 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="text-xl font-semibold mt-1">{scanDetail?.[key] ?? 0}</p>
               </div>
             ))}
             <div className="rounded-xl border border-border/70 p-3 text-center">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Total</p>
+              <p className="text-xs text-muted-foreground">Total</p>
               <p className="text-xl font-semibold mt-1">{scanDetail?.total ?? 0}</p>
             </div>
           </div>
@@ -408,7 +408,7 @@ export function Drift() {
             </Button>
             <Button
               size="sm"
-              className="brand-gradient text-white border-0"
+              className=""
               onClick={() => remediateMutation.mutate(scanDetail.id)}
               disabled={remediateMutation.isPending}
             >

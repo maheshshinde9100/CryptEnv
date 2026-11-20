@@ -1,18 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
-import { secretsAPI, workspaceAPI, postureAPI } from '../lib/api'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { useOutletContext } from 'react-router-dom'
+import { secretsAPI, postureAPI } from '../lib/api'
 import { Skeleton } from '../components/ui/skeleton'
-import { Shield, ShieldCheck, ShieldAlert, ShieldOff, Key, Lock, AlertTriangle, CheckCircle2, Activity } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
+
+function Metric({ label, value, hint }) {
+  return (
+    <div className="p-5">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-3 text-2xl font-light tracking-[-0.02em]">{value}</p>
+      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  )
+}
 
 export function SecurityHealth() {
-  const { data: secrets, isLoading: secretsLoading } = useQuery({
+  const { activeWorkspace } = useOutletContext() || {}
+
+  const { data: secrets = [], isLoading: secretsLoading } = useQuery({
     queryKey: ['secrets'],
     queryFn: () => secretsAPI.list().then((res) => res.data),
-  })
-
-  const { data: workspaces, isLoading: workspacesLoading } = useQuery({
-    queryKey: ['workspaces'],
-    queryFn: () => workspaceAPI.list().then((res) => res.data),
   })
 
   const { data: posture, isLoading: postureLoading } = useQuery({
@@ -20,168 +27,81 @@ export function SecurityHealth() {
     queryFn: () => postureAPI.current().then((res) => res.data),
   })
 
-  const totalSecrets = secrets?.length || 0
-  const totalWorkspaces = workspaces?.length || 0
-  const isLoading = secretsLoading || workspacesLoading || postureLoading
+  const isLoading = secretsLoading || postureLoading
   const metrics = posture?.metrics || {}
+  const score = posture?.score
 
   const checks = [
-    {
-      label: 'AES-256 GCM Encryption',
-      description: 'All secrets are encrypted with AES-256 GCM cipher at rest',
-      status: 'pass',
-      icon: Lock,
-    },
-    {
-      label: 'JWT Authentication',
-      description: 'All API endpoints are protected with JWT Bearer tokens',
-      status: 'pass',
-      icon: ShieldCheck,
-    },
-    {
-      label: 'API Key Authentication',
-      description: 'SDK and CLI access via X-API-Key header is enabled',
-      status: 'pass',
-      icon: Key,
-    },
-    {
-      label: 'Secrets Encrypted',
-      description: `${totalSecrets} secret(s) stored with AES-256 encryption`,
-      status: metrics.expiredSecrets > 0 ? 'fail' : 'pass',
-      icon: ShieldCheck,
-    },
-    {
-      label: 'Workspace Isolation',
-      description: `${totalWorkspaces} workspace(s) with environment-scoped secret isolation`,
-      status: totalWorkspaces > 0 ? 'pass' : 'warn',
-      icon: Shield,
-    },
-    {
-      label: 'Audit Logging',
-      description: 'All secret access and user actions are logged',
-      status: 'pass',
-      icon: Activity,
-    },
+    ['AES-256-GCM at rest', 'Every secret is encrypted before it is stored', true],
+    ['JWT-authenticated API', 'All endpoints require a bearer or API-key session', true],
+    ['Workspace isolation', activeWorkspace?.hasEncryptionKey ? 'Encryption key configured' : 'No encryption key set', !!activeWorkspace?.hasEncryptionKey],
+    ['MFA on the account', metrics.mfaEnabled ? 'TOTP is active' : 'TOTP is not enabled', !!metrics.mfaEnabled],
+    ['Expired secrets', `${metrics.expiredSecrets ?? 0} expired`, !(metrics.expiredSecrets > 0)],
+    ['Rotation coverage', `${metrics.withoutRotationPolicy ?? 0} without policy`, !(metrics.withoutRotationPolicy > 0)],
   ]
 
-  const passCount = checks.filter((c) => c.status === 'pass').length
-  const warnCount = checks.filter((c) => c.status === 'warn').length
-  const failCount = checks.filter((c) => c.status === 'fail').length
-  const score = posture?.score ?? Math.round((passCount / checks.length) * 100)
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Security Health</h1>
-        <p className="text-muted-foreground">Overview of your environment's security posture</p>
-      </div>
+    <div className="space-y-8">
+      <header>
+        <p className="eyebrow">Security</p>
+        <h1 className="page-title mt-3">Security health</h1>
+        <p className="page-subtitle">Live posture computed from your secret metadata, rotation policy and account MFA</p>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-green-500/30 bg-green-500/5">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-green-500/10">
-                <CheckCircle2 className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Security Score</p>
-                <p className="text-3xl font-bold text-green-500">{score}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-green-500/10">
-                <ShieldCheck className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Passed Checks</p>
-                <p className="text-3xl font-bold">{passCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-yellow-500/10">
-                <AlertTriangle className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Warnings</p>
-                <p className="text-3xl font-bold">{warnCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : (
+        <>
+          <section className="grid divide-y divide-border rounded-lg border border-border sm:grid-cols-4 sm:divide-y-0 sm:divide-x">
+            <Metric label="Posture score" value={score != null ? `${score}` : '—'} hint={posture?.grade ? `Grade ${posture.grade}` : undefined} />
+            <Metric label="Secrets" value={secrets.length} hint={`${metrics.totalSecrets ?? 0} tracked`} />
+            <Metric label="Expired" value={metrics.expiredSecrets ?? 0} hint="Should be zero" />
+            <Metric label="Overdue rotation" value={metrics.overdueRotation ?? 0} hint="Past rotation date" />
+          </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            Security Checks
-          </CardTitle>
-          <CardDescription>Detailed breakdown of your security controls</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1,2,3,4].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+          <section className="rounded-lg border border-border">
+            <div className="flex items-center gap-2 border-b border-border px-5 py-4">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <h2 className="text-base">Controls</h2>
+                <p className="text-xs text-muted-foreground">Signals that drive the posture score</p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {checks.map((check, index) => {
-                const Icon = check.icon
-                const statusColors = {
-                  pass: 'text-green-500 bg-green-500/10',
-                  warn: 'text-yellow-500 bg-yellow-500/10',
-                  fail: 'text-red-500 bg-red-500/10',
-                }
-                const badgeColors = {
-                  pass: 'bg-green-500/10 text-green-600',
-                  warn: 'bg-yellow-500/10 text-yellow-600',
-                  fail: 'bg-red-500/10 text-red-600',
-                }
-                return (
-                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/30 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-full ${statusColors[check.status]}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">{check.label}</p>
-                        <p className="text-xs text-muted-foreground">{check.description}</p>
-                      </div>
-                    </div>
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${badgeColors[check.status]}`}>
-                      {check.status === 'pass' ? 'PASS' : check.status === 'warn' ? 'WARN' : 'FAIL'}
-                    </span>
+            <ul className="divide-y divide-border/60">
+              {checks.map(([label, description, pass]) => (
+                <li key={label} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                  <div>
+                    <p className="text-sm">{label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  <span className={pass ? 'chip' : 'chip text-danger'}>{pass ? 'Pass' : 'Attention'}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-      {!isLoading && posture?.remediation?.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Prioritized remediation</CardTitle>
-            <CardDescription>Actions calculated from your current secret metadata and MFA posture</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {posture.remediation.map((item) => (
-              <div key={item.title} className="flex items-start justify-between gap-4 rounded-lg border p-4">
-                <div><p className="font-semibold text-sm">{item.title}</p><p className="text-xs text-muted-foreground mt-1">{item.description}</p></div>
-                <span className="text-xs font-bold px-2 py-1 rounded-full bg-muted">{item.priority}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+          <section className="rounded-lg border border-border">
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="text-base">Prioritized remediation</h2>
+              <p className="text-xs text-muted-foreground">Actions calculated from the current posture</p>
+            </div>
+            {posture?.remediation?.length ? (
+              <ul className="divide-y divide-border/60">
+                {posture.remediation.map((item) => (
+                  <li key={item.title} className="flex items-start justify-between gap-4 px-5 py-4">
+                    <div>
+                      <p className="text-sm">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                    <span className="chip">{item.priority}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-5 py-10 text-center text-sm text-muted-foreground">Nothing to remediate.</p>
+            )}
+          </section>
+        </>
       )}
     </div>
   )

@@ -41,17 +41,17 @@ const providerConfigFields = {
 }
 
 const statusStyles = {
-  CONNECTED: 'bg-green-500/10 text-green-600 border-green-500/30',
-  ERROR: 'bg-red-500/10 text-red-600 border-red-500/30',
-  DISCONNECTED: 'bg-muted text-muted-foreground border-border',
+  CONNECTED: 'text-muted-foreground',
+  ERROR: 'text-danger',
+  DISCONNECTED: 'text-muted-foreground',
 }
 
 const jobStatusStyles = {
-  PENDING: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
-  RUNNING: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
-  SUCCESS: 'bg-green-500/10 text-green-600 border-green-500/30',
-  FAILED: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
-  DEAD: 'bg-red-500/10 text-red-600 border-red-500/30',
+  PENDING: 'text-muted-foreground',
+  RUNNING: 'text-ink',
+  SUCCESS: 'text-muted-foreground',
+  FAILED: 'text-danger',
+  DEAD: 'text-danger',
 }
 
 const toolingIntegrations = [
@@ -252,31 +252,32 @@ export function Integrations() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-muted-foreground">Push workspace secrets to cloud providers and CI/CD platforms</p>
+          <p className="eyebrow">Workspace</p>
+          <h1 className="page-title mt-3">Integrations</h1>
+          <p className="page-subtitle">Push workspace secrets to cloud providers and CI/CD platforms</p>
         </div>
         <Button
           variant="outline"
           onClick={() => invalidateProviderData()}
           disabled={overviewLoading}
         >
-          <RefreshCw className={`mr-2 h-4 w-4 ${overviewLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${overviewLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
+      </header>
 
       {/* Queue summary */}
       <section className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         {['PENDING', 'RUNNING', 'SUCCESS', 'FAILED', 'DEAD'].map((status) => (
-          <div key={status} className="glass-panel rounded-xl p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">{status}</p>
+          <div key={status} className="rounded-lg border border-border p-4">
+            <p className="text-xs text-muted-foreground">{status}</p>
             <p className="text-2xl font-semibold mt-1">{queueCounts[status] ?? 0}</p>
           </div>
         ))}
-        <div className="glass-panel rounded-xl p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total</p>
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-xs text-muted-foreground">Total</p>
           <p className="text-2xl font-semibold mt-1">{queue?.total ?? jobs.length}</p>
         </div>
       </section>
@@ -284,17 +285,17 @@ export function Integrations() {
       {/* Providers */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <Plug className="h-5 w-5 text-primary" />
+          <Plug className="h-5 w-5 text-ink" />
           <div>
             <h2 className="font-semibold">Cloud & CI Providers</h2>
-            <p className="text-sm text-muted-foreground">Connect a platform, then sync an environment's secrets</p>
+            <p className="text-sm text-muted-foreground">Connect a platform, then sync an environment&apos;s secrets</p>
           </div>
         </div>
 
         {overviewLoading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-48 w-full rounded-2xl" />
+              <Skeleton key={i} className="h-48 w-full" />
             ))}
           </div>
         ) : (
@@ -305,11 +306,11 @@ export function Integrations() {
               const integration = integrationsByProvider[provider.id]
               const status = provider.status || 'DISCONNECTED'
               return (
-                <Card key={provider.id} className="rounded-2xl flex flex-col">
+                <Card key={provider.id} className="flex flex-col">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="p-2.5 rounded-xl bg-primary/10">
-                        <Icon className="h-5 w-5 text-primary" />
+                      <div className="p-2.5 rounded-xl bg-white/[0.06]">
+                        <Icon className="h-5 w-5 text-ink" />
                       </div>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${statusStyles[status] || statusStyles.DISCONNECTED}`}>
                         {status}
@@ -320,7 +321,7 @@ export function Integrations() {
                   </CardHeader>
                   <CardContent className="space-y-3 mt-auto">
                     {integration?.lastError && (
-                      <p className="text-xs text-red-600 flex items-start gap-1.5">
+                      <p className="text-xs text-danger flex items-start gap-1.5">
                         <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                         <span className="line-clamp-2">{integration.lastError}</span>
                       </p>
@@ -336,7 +337,7 @@ export function Integrations() {
                     <div className="flex flex-wrap gap-2">
                       {provider.connected ? (
                         <>
-                          <Button size="sm" className="brand-gradient text-white border-0" onClick={() => openSync(provider.id)}>
+                          <Button size="sm" className="" onClick={() => openSync(provider.id)}>
                             <Send className="h-3.5 w-3.5 mr-1.5" />
                             Sync
                           </Button>
@@ -360,7 +361,7 @@ export function Integrations() {
                           </Button>
                         </>
                       ) : (
-                        <Button size="sm" className="brand-gradient text-white border-0 w-full" onClick={() => openConnect(provider.id)}>
+                        <Button size="sm" className=" w-full" onClick={() => openConnect(provider.id)}>
                           <Plug className="h-3.5 w-3.5 mr-1.5" />
                           Connect
                         </Button>
@@ -375,9 +376,9 @@ export function Integrations() {
       </section>
 
       {/* Export */}
-      <section className="glass-panel rounded-2xl p-5 sm:p-6 space-y-4">
+      <section className="rounded-lg border border-border p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Download className="h-5 w-5 text-primary" />
+          <Download className="h-5 w-5 text-ink" />
           <div>
             <h2 className="font-semibold">Export environment</h2>
             <p className="text-sm text-muted-foreground">Download decrypted secrets as .env, JSON, or docker-compose text</p>
@@ -420,7 +421,7 @@ export function Integrations() {
       {/* Sync jobs */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <RotateCcw className="h-5 w-5 text-primary" />
+          <RotateCcw className="h-5 w-5 text-ink" />
           <div>
             <h2 className="font-semibold">Sync jobs</h2>
             <p className="text-sm text-muted-foreground">Background pushes and their retry status</p>
@@ -428,17 +429,17 @@ export function Integrations() {
         </div>
 
         {jobsLoading ? (
-          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full" />
         ) : jobs.length === 0 ? (
-          <div className="glass-panel rounded-2xl p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
             No sync jobs yet. Connect a provider and queue a sync to see activity here.
           </div>
         ) : (
-          <div className="glass-panel rounded-2xl overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b border-border/70 bg-muted/40">
-                  <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr className="text-left text-xs text-muted-foreground">
                     <th className="px-4 py-3 font-medium">Provider</th>
                     <th className="px-4 py-3 font-medium">Operation</th>
                     <th className="px-4 py-3 font-medium">Target</th>
@@ -459,7 +460,7 @@ export function Integrations() {
                           {job.status}
                         </span>
                         {job.lastError && (
-                          <p className="text-[11px] text-red-600 mt-1 line-clamp-1" title={job.lastError}>{job.lastError}</p>
+                          <p className="text-[11px] text-danger mt-1 line-clamp-1" title={job.lastError}>{job.lastError}</p>
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs">{job.attempts}/{job.maxAttempts}</td>
@@ -489,7 +490,7 @@ export function Integrations() {
       {/* Developer tooling */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <Code2 className="h-5 w-5 text-primary" />
+          <Code2 className="h-5 w-5 text-ink" />
           <div>
             <h2 className="font-semibold">Developer tooling</h2>
             <p className="text-sm text-muted-foreground">SDKs, CLI, and runtime integrations</p>
@@ -499,10 +500,10 @@ export function Integrations() {
           {toolingIntegrations.map((integration) => {
             const Icon = integration.icon
             return (
-              <Card key={integration.id} className="hover:border-primary/50 transition-colors group rounded-2xl">
+              <Card key={integration.id} className="transition-colors group">
                 <CardHeader className="pb-3">
-                  <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors w-fit">
-                    <Icon className="h-5 w-5 text-primary" />
+                  <div className="p-2.5 rounded-xl bg-white/[0.06] group-hover:bg-primary/20 transition-colors w-fit">
+                    <Icon className="h-5 w-5 text-ink" />
                   </div>
                   <CardTitle className="text-base mt-2">{integration.name}</CardTitle>
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit bg-muted text-muted-foreground">
@@ -575,7 +576,7 @@ export function Integrations() {
             ))}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setConnectProvider(null)}>Cancel</Button>
-              <Button type="submit" className="brand-gradient text-white border-0" disabled={connectMutation.isPending}>
+              <Button type="submit" className="" disabled={connectMutation.isPending}>
                 {connectMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
                 Connect
               </Button>
@@ -645,7 +646,7 @@ export function Integrations() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setSyncProvider(null)}>Cancel</Button>
-              <Button type="submit" className="brand-gradient text-white border-0" disabled={syncMutation.isPending}>
+              <Button type="submit" className="" disabled={syncMutation.isPending}>
                 {syncMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
                 Queue sync
               </Button>
