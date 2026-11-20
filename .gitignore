@@ -1,4 +1,5 @@
 cryptenv-core/src/main/resources/application.properties
+!cryptenv-core/src/main/resources/application.properties.example
 cryptenv-cli/node_modules
 cryptenv-cli/.env
 .env*
@@ -16,4 +17,3 @@ cryptenv-vscode/node_modules/*
 *.vsix
 *.class
 cryptenv-sdk/java/target/classes/com/maheshshinde/cryptenv/sdk/CryptEnvClient$2.class
-cryptenv-core/src/main/resources/application.properties.example

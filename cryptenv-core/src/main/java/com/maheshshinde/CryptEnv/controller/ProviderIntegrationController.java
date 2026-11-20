@@ -22,7 +22,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/integrations")
 @RequiredArgsConstructor
-@Tag(name = "Provider Sync", description = "Push secrets to GitHub, Vercel, Cloudflare, Kubernetes, …")
+@Tag(name = "Provider Sync", description = "Push secrets to GitHub, Vercel, Cloudflare, GitLab, …")
 public class ProviderIntegrationController {
 
     private final ProviderSyncService providerSyncService;

@@ -46,7 +46,6 @@ public class IntegrationService {
         Map.entry("azure", new IntegrationConfig("Azure", "Cloud", "https://azure.microsoft.com")),
         Map.entry("digitalocean", new IntegrationConfig("DigitalOcean", "Cloud", "https://digitalocean.com")),
         Map.entry("cloudflare", new IntegrationConfig("Cloudflare", "Cloud", "https://cloudflare.com")),
-        Map.entry("kubernetes", new IntegrationConfig("Kubernetes", "Cloud", null)),
         Map.entry("terraform_cloud", new IntegrationConfig("Terraform Cloud", "Cloud", "https://app.terraform.io")),
         
         // Databases

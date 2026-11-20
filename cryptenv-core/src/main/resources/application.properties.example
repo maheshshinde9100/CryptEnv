@@ -75,12 +75,6 @@ jwt.expiration=${JWT_EXPIRATION:900000}
 # Refresh token TTL (default 7 days)
 jwt.refresh-expiration-ms=${JWT_REFRESH_EXPIRATION:604800000}
 
-# -------- WebAuthn / Passkeys --------
-# Set these to the deployed dashboard/API hostnames when enabling passkeys in production.
-cryptenv.webauthn.rp-id=${WEBAUTHN_RP_ID:localhost}
-cryptenv.webauthn.rp-name=${WEBAUTHN_RP_NAME:CryptEnv}
-cryptenv.webauthn.origins=${WEBAUTHN_ORIGINS:http://localhost:5173,http://localhost:8080}
-
 # -------- Rate limiting (per client IP) --------
 cryptenv.rate-limit.enabled=${RATE_LIMIT_ENABLED:true}
 cryptenv.rate-limit.capacity=${RATE_LIMIT_CAPACITY:120}
