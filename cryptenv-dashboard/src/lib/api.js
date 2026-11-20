@@ -235,13 +235,3 @@ export const leaksAPI = {
 }
 
 export default api
-
-export const cloudIntegrationsAPI = {
-  getTypes: () => api.get('/integrations/types'),
-  getWorkspaceIntegrations: (workspaceId) => api.get(`/integrations/workspace/${workspaceId}`),
-  getWorkspaceIntegrationsByCategory: (workspaceId, category) => api.get(`/integrations/workspace/${workspaceId}/category/${category}`),
-  connect: (data) => api.post('/integrations/connect', data),
-  disconnect: (data) => api.post('/integrations/disconnect', data),
-  sync: (integrationId, data) => api.post(`/integrations/${integrationId}/sync`, data),
-  getSyncLogs: (integrationId) => api.get(`/integrations/${integrationId}/sync-logs`),
-}
