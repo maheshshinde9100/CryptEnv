@@ -532,7 +532,7 @@ export function Integrations() {
                 </thead>
                 <tbody>
                   {jobs.map((job) => (
-                    <tr key={job.id} className="border-b border-border/60 last:border-0">
+                    <tr key={job.id} className="border-b border-border/60 transition-colors last:border-0 hover:bg-white/[0.02]">
                       <td className="px-4 py-3 font-medium">{job.provider}</td>
                       <td className="px-4 py-3">{job.operation}</td>
                       <td className="px-4 py-3 font-mono text-xs">{job.target || '—'}</td>

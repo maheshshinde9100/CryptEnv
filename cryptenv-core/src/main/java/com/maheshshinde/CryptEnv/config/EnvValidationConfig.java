@@ -31,6 +31,9 @@ public class EnvValidationConfig {
     @Value("${MASTER_ENCRYPTION_KEY:__MISSING__}")
     private String masterKey;
 
+    @Value("${spring.mail.host:}")
+    private String mailHost;
+
     @PostConstruct
     public void validate() {
         List<String> errors = new ArrayList<>();
@@ -93,6 +96,13 @@ public class EnvValidationConfig {
         log.info("EnvValidation: JWT_SECRET length={} chars ✓", jwtSecret.length());
         log.info("EnvValidation: MASTER_ENCRYPTION_KEY Base64 decode: {} bytes ✓",
                 Base64.getDecoder().decode(masterKey).length);
+
+        if (!StringUtils.hasText(mailHost)) {
+            log.warn("EnvValidation: SMTP is not configured (spring.mail.host is empty). " +
+                    "Sign-up works, but verification emails are NOT delivered. " +
+                    "Set SPRING_MAIL_HOST, SPRING_MAIL_PORT, SPRING_MAIL_USERNAME and " +
+                    "SPRING_MAIL_PASSWORD (or use MailHog locally with host=mailhog, port=1025).");
+        }
     }
 
     private void required(List<String> errors, String name, String value) {

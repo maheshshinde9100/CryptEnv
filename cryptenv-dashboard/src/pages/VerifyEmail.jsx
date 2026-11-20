@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { authAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { BrandLogo } from '../components/BrandLogo'
@@ -28,6 +28,13 @@ export function VerifyEmail() {
     onError: () => toast.error('Could not resend the verification code'),
   })
 
+  const { data: mailStatus } = useQuery({
+    queryKey: ['email-verification-status'],
+    queryFn: () => authAPI.verificationStatus().then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
+  })
+  const mailConfigured = mailStatus?.mailConfigured !== false
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-sm">
@@ -43,6 +50,16 @@ export function VerifyEmail() {
             <h1 className="text-2xl font-light tracking-[-0.02em]">Verify your email</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">Codes expire shortly after they are sent.</p>
           </div>
+          {!mailConfigured && (
+            <div className="mb-5 rounded-md border border-border bg-surface p-3 text-xs leading-relaxed text-muted-foreground">
+              <span className="text-foreground">This server cannot send email yet.</span>{' '}
+              Set <code className="font-mono text-[11px]">SPRING_MAIL_HOST</code>,{' '}
+              <code className="font-mono text-[11px]">SPRING_MAIL_PORT</code>,{' '}
+              <code className="font-mono text-[11px]">SPRING_MAIL_USERNAME</code> and{' '}
+              <code className="font-mono text-[11px]">SPRING_MAIL_PASSWORD</code> on the API, then restart it.
+              Locally, docker compose provides MailHog at <span className="font-mono text-[11px]">http://localhost:8025</span>.
+            </div>
+          )}
           <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); verify.mutate() }}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
