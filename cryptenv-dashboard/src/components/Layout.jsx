@@ -265,7 +265,9 @@ export function Layout() {
           }`}
         >
           <div className="mx-auto w-full max-w-content">
-            <Outlet context={{ activeWorkspace, workspaces, user }} />
+            <div key={location.pathname} className="page-enter">
+              <Outlet context={{ activeWorkspace, workspaces, user }} />
+            </div>
           </div>
         </main>
       </div>
