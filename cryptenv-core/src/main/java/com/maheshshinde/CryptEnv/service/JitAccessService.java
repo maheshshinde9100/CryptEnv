@@ -85,6 +85,9 @@ public class JitAccessService {
         if (role != Role.OWNER && role != Role.ADMIN) {
             throw new RuntimeException("Only owner/admin can deny JIT");
         }
+        if (req.getStatus() != JitRequest.Status.PENDING) {
+            throw new IllegalArgumentException("Request is not pending");
+        }
         req.setStatus(JitRequest.Status.DENIED);
         req.setApprovedBy(admin);
         return toMap(jitRequestRepository.save(req));
@@ -92,6 +95,12 @@ public class JitAccessService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listForWorkspace(Long workspaceId) {
+        User user = securityService.getCurrentUser();
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        if (workspaceService.getEffectiveRole(workspace, user) == null) {
+            throw new ResourceNotFoundException("Workspace not found");
+        }
         return jitRequestRepository.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId).stream()
                 .map(this::toMap)
                 .collect(Collectors.toList());

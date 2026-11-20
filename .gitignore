@@ -16,4 +16,6 @@ cryptenv-dashboard/testing-cli.js
 cryptenv-vscode/node_modules/*
 *.vsix
 *.class
+*.log
+cryptenv-core/logs/
 cryptenv-sdk/java/target/classes/com/maheshshinde/cryptenv/sdk/CryptEnvClient$2.class

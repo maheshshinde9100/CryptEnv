@@ -72,12 +72,24 @@ public class WorkspaceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
         validateWorkspaceAccess(workspace, currentUser);
 
+        return decryptKey(workspace);
+    }
+
+    /** Key access for trusted system jobs (rotation/expiry) that run without a security context. */
+    @Transactional(readOnly = true)
+    public String getDecryptedWorkspaceKeyForSystem(Long workspaceId) {
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with id: " + workspaceId));
+        return decryptKey(workspace);
+    }
+
+    private String decryptKey(Workspace workspace) {
         if (workspace.getWorkspaceEncryptionKey() == null) {
             throw new ResourceNotFoundException("Workspace encryption key not set for this workspace. Please update workspace settings.");
         }
-
         return encryptionService.decryptWorkspaceKey(workspace.getWorkspaceEncryptionKey());
     }
+
 
     @Transactional(readOnly = true)
     public Workspace getWorkspaceEntityByIdAndOwner(Long workspaceId, Long ownerId) {

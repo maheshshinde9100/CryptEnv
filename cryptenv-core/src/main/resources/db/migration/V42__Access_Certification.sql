@@ -16,7 +16,7 @@ CREATE TABLE access_review_items (
     id BIGSERIAL PRIMARY KEY,
     access_review_id BIGINT NOT NULL REFERENCES access_reviews(id) ON DELETE CASCADE,
     user_id BIGINT NOT NULL REFERENCES users(id),
-    workspace_member_id BIGINT REFERENCES workspace_members(id) ON DELETE CASCADE,
+    workspace_member_id BIGINT,
     role VARCHAR(50),
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     reviewed_by BIGINT REFERENCES users(id),

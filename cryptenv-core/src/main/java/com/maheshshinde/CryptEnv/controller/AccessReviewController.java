@@ -22,17 +22,16 @@ public class AccessReviewController {
     private final AccessReviewService accessReviewService;
 
     @PostMapping
-    @Operation(summary = "Create a new access review")
+    @Operation(summary = "Create a new access review (owner/admin). Dates default to a 90-day period.")
     public ResponseEntity<AccessReview> createReview(@RequestBody Map<String, Object> body) {
-        Long workspaceId = Long.valueOf(body.get("workspaceId").toString());
-        String name = (String) body.get("name");
-        LocalDateTime reviewPeriodStart = LocalDateTime.parse(body.get("reviewPeriodStart").toString());
-        LocalDateTime reviewPeriodEnd = LocalDateTime.parse(body.get("reviewPeriodEnd").toString());
-        LocalDateTime dueDate = LocalDateTime.parse(body.get("dueDate").toString());
-        Long createdBy = Long.valueOf(body.get("createdBy").toString());
-        
-        AccessReview review = accessReviewService.createAccessReview(workspaceId, name, reviewPeriodStart,
-                reviewPeriodEnd, dueDate, createdBy);
+        Long workspaceId = Long.valueOf(String.valueOf(body.get("workspaceId")));
+        String name = body.get("name") == null ? null : body.get("name").toString();
+        AccessReview review = accessReviewService.createAccessReview(
+                workspaceId,
+                name,
+                parseDate(body.get("reviewPeriodStart")),
+                parseDate(body.get("reviewPeriodEnd")),
+                parseDate(body.get("dueDate")));
         return ResponseEntity.ok(review);
     }
 
@@ -49,21 +48,24 @@ public class AccessReviewController {
     }
 
     @PostMapping("/items/{itemId}/review")
-    @Operation(summary = "Review an access review item")
+    @Operation(summary = "Approve, revoke, or escalate an access review item (owner/admin)")
     public ResponseEntity<AccessReviewItem> reviewItem(@PathVariable Long itemId,
-                                                        @RequestBody Map<String, Object> body) {
-        String status = (String) body.get("status");
-        Long reviewedBy = Long.valueOf(body.get("reviewedBy").toString());
-        String comment = (String) body.get("comment");
-        
-        AccessReviewItem item = accessReviewService.reviewItem(itemId, status, reviewedBy, comment);
-        return ResponseEntity.ok(item);
+                                                       @RequestBody Map<String, Object> body) {
+        String status = body.get("status") == null ? null : body.get("status").toString();
+        String comment = body.get("comment") == null ? null : body.get("comment").toString();
+        return ResponseEntity.ok(accessReviewService.reviewItem(itemId, status, comment));
     }
 
     @PostMapping("/{reviewId}/complete")
-    @Operation(summary = "Complete an access review")
+    @Operation(summary = "Complete an access review (owner/admin)")
     public ResponseEntity<AccessReview> completeReview(@PathVariable Long reviewId) {
-        AccessReview review = accessReviewService.completeReview(reviewId);
-        return ResponseEntity.ok(review);
+        return ResponseEntity.ok(accessReviewService.completeReview(reviewId));
+    }
+
+    private LocalDateTime parseDate(Object value) {
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+        return LocalDateTime.parse(value.toString());
     }
 }
