@@ -5,10 +5,10 @@ import { Copy } from 'lucide-react'
 function Code({ children }) {
   const text = String(children).trim()
   return (
-    <div className="relative group rounded-xl border border-border/70 bg-muted/40 overflow-hidden">
+    <div className="relative group overflow-hidden rounded-lg border border-border bg-surface">
       <button
         type="button"
-        className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-background/80 border text-muted-foreground hover:text-foreground"
+        className="absolute right-2 top-2 rounded-sm border border-border bg-background p-1.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
         onClick={() => {
           navigator.clipboard.writeText(text)
           toast.success('Copied')
@@ -23,7 +23,7 @@ function Code({ children }) {
 
 function Note({ children }) {
   return (
-    <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-foreground/90">
+    <div className="rounded-md border border-border px-4 py-3 text-sm text-secondary">
       {children}
     </div>
   )
@@ -31,8 +31,8 @@ function Note({ children }) {
 
 function Tip({ children }) {
   return (
-    <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm text-foreground/90">
-      <span className="font-semibold text-violet-300">Tip — </span>
+    <div className="rounded-md border border-border px-4 py-3 text-sm text-secondary">
+      <span className="font-medium text-foreground">Tip — </span>
       {children}
     </div>
   )
@@ -42,10 +42,10 @@ function Step({ n, title, children }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
-        <span className="h-8 w-8 rounded-full brand-gradient text-white text-sm font-bold flex items-center justify-center">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border font-mono text-xs text-secondary">
           {n}
         </span>
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <h3 className="text-base font-medium">{title}</h3>
       </div>
       <div className="pl-11 space-y-3">{children}</div>
     </section>
@@ -55,11 +55,11 @@ function Step({ n, title, children }) {
 function Toc({ items }) {
   return (
     <aside className="hidden xl:block w-48 shrink-0 sticky top-24 self-start">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">On this page</p>
+      <p className="mb-3 text-[11px] text-muted-foreground">On this page</p>
       <ul className="space-y-2 text-sm">
         {items.map((item) => (
           <li key={item}>
-            <a href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="text-muted-foreground hover:text-primary">
+            <a href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="text-muted-foreground hover:text-foreground">
               {item}
             </a>
           </li>
@@ -74,10 +74,10 @@ export function GettingStartedDoc() {
     <div className="flex gap-10">
       <article className="flex-1 min-w-0 space-y-8">
         <header className="space-y-3">
-          <h1 className="text-3xl font-bold tracking-tight" id="introduction">
+          <h1 className="text-3xl font-light tracking-[-0.02em]" id="introduction">
             Getting Started
           </h1>
-          <p className="text-lg text-muted-foreground">Build without secrets leaking</p>
+          <p className="text-base text-muted-foreground">Build without secrets leaking</p>
           <p className="text-muted-foreground leading-relaxed">
             CryptEnv is a secrets management platform. It replaces insecure local <code className="text-xs bg-muted px-1 rounded">.env</code> files
             with encrypted vault storage and runtime injection across the dashboard, CLI, VS Code extension, and SDKs.
@@ -131,7 +131,7 @@ cryptenv init`}</Code>
           </Tip>
         </Step>
 
-        <div className="rounded-xl border border-border/70 bg-card/50 p-4 text-sm text-muted-foreground" id="reference">
+        <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground" id="reference">
           <p className="font-semibold text-foreground mb-1">Reference</p>
           Secrets live only in the child process environment when you use{' '}
           <code className="text-xs bg-muted px-1 rounded">cryptenv run</code> — never written to disk by the CLI.
@@ -139,7 +139,7 @@ cryptenv init`}</Code>
 
         <div className="flex justify-between pt-4 border-t border-border/60">
           <span />
-          <Link to="/docs/workspaces" className="text-primary font-medium hover:underline">
+          <Link to="/docs/workspaces" className="text-foreground hover:underline">
             Next: Workspace Management →
           </Link>
         </div>
@@ -152,7 +152,7 @@ cryptenv init`}</Code>
 export function WorkspacesDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">Workspace Management</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">Workspace Management</h1>
       <p className="text-muted-foreground">
         A workspace isolates a project. Each workspace has an encryption key that wraps secret ciphertext. Environments
         split DEVELOPMENT / STAGING / PRODUCTION.
@@ -172,10 +172,10 @@ cryptenv workspaces create my-api -k "$(openssl rand -base64 32)" -d "API vault"
         re-save secrets if decrypt fails.
       </Note>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/getting-started" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/getting-started" className="text-muted-foreground hover:text-foreground">
           ← Getting Started
         </Link>
-        <Link to="/docs/workflow" className="text-primary font-medium hover:underline">
+        <Link to="/docs/workflow" className="text-foreground hover:underline">
           Next: Development Workflow →
         </Link>
       </div>
@@ -186,7 +186,7 @@ cryptenv workspaces create my-api -k "$(openssl rand -base64 32)" -d "API vault"
 export function WorkflowDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">Development Workflow</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">Development Workflow</h1>
       <p className="text-muted-foreground">Typical day-to-day loop with CryptEnv.</p>
       <Code>{`# Add / update secrets (dashboard or CLI)
 cryptenv secrets set DATABASE_URL "postgresql://localhost/app"
@@ -204,10 +204,10 @@ cryptenv run -- mvn spring-boot:run`}</Code>
         Prefer revealing values in the dashboard with the eye icon only when needed. Avoid pasting secrets into chat or tickets.
       </Tip>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/workspaces" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/workspaces" className="text-muted-foreground hover:text-foreground">
           ← Workspaces
         </Link>
-        <Link to="/docs/cicd" className="text-primary font-medium hover:underline">
+        <Link to="/docs/cicd" className="text-foreground hover:underline">
           Next: CI/CD →
         </Link>
       </div>
@@ -218,7 +218,7 @@ cryptenv run -- mvn spring-boot:run`}</Code>
 export function CicdDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">CI/CD Integration</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">CI/CD Integration</h1>
       <p className="text-muted-foreground">Use API keys — never commit passwords or JWT tokens.</p>
       <h2 className="text-xl font-semibold">GitHub Actions</h2>
       <Code>{`# .github/workflows/ci.yml
@@ -235,10 +235,10 @@ RUN npm install -g cryptenv-cli
 CMD ["cryptenv", "run", "--", "node", "server.js"]`}</Code>
       <Tip>Store <code className="text-xs bg-muted px-1 rounded">CRYPTENV_API_KEY</code> in your CI secret store, not in the Dockerfile.</Tip>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/workflow" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/workflow" className="text-muted-foreground hover:text-foreground">
           ← Workflow
         </Link>
-        <Link to="/docs/cli" className="text-primary font-medium hover:underline">
+        <Link to="/docs/cli" className="text-foreground hover:underline">
           Next: CLI Reference →
         </Link>
       </div>
@@ -249,7 +249,7 @@ CMD ["cryptenv", "run", "--", "node", "server.js"]`}</Code>
 export function CliDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">CLI Reference</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">CLI Reference</h1>
       <p className="text-muted-foreground">cryptenv-cli <strong className="text-foreground">1.3.0</strong></p>
       <Code>{`npm install -g cryptenv-cli
 
@@ -265,10 +265,10 @@ cryptenv run -- <command> [args...]`}</Code>
         <li><code className="text-xs bg-muted px-1 rounded">CRYPTENV_API_KEY</code> — CI auth</li>
       </ul>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/cicd" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/cicd" className="text-muted-foreground hover:text-foreground">
           ← CI/CD
         </Link>
-        <Link to="/docs/vscode" className="text-primary font-medium hover:underline">
+        <Link to="/docs/vscode" className="text-foreground hover:underline">
           Next: VS Code →
         </Link>
       </div>
@@ -279,7 +279,7 @@ cryptenv run -- <command> [args...]`}</Code>
 export function VscodeDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">VS Code Extension</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">VS Code Extension</h1>
       <p className="text-muted-foreground">CryptEnv extension <strong className="text-foreground">1.2.0</strong></p>
       <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
         <li>Sign In / API Key / Create Account</li>
@@ -294,10 +294,10 @@ CryptEnv: Create Workspace
 CryptEnv: Add Secret
 CryptEnv: Insert Secret Value at Cursor`}</Code>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/cli" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/cli" className="text-muted-foreground hover:text-foreground">
           ← CLI
         </Link>
-        <Link to="/docs/security" className="text-primary font-medium hover:underline">
+        <Link to="/docs/security" className="text-foreground hover:underline">
           Next: Security →
         </Link>
       </div>
@@ -308,7 +308,7 @@ CryptEnv: Insert Secret Value at Cursor`}</Code>
 export function SecurityDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">Security Features</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">Security Features</h1>
       <ul className="space-y-3 text-sm text-muted-foreground">
         <li><strong className="text-foreground">AES-256-GCM</strong> — secrets encrypted with the workspace key</li>
         <li><strong className="text-foreground">Master key</strong> — wraps workspace keys at rest (env: MASTER_ENCRYPTION_KEY)</li>
@@ -319,10 +319,10 @@ export function SecurityDoc() {
       </ul>
       <Note>Never commit <code className="text-xs bg-muted px-1 rounded">application.properties</code>, <code className="text-xs bg-muted px-1 rounded">.env*</code>, or live API keys.</Note>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/vscode" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/vscode" className="text-muted-foreground hover:text-foreground">
           ← VS Code
         </Link>
-        <Link to="/docs/integrations" className="text-primary font-medium hover:underline">
+        <Link to="/docs/integrations" className="text-foreground hover:underline">
           Next: Integrations →
         </Link>
       </div>
@@ -333,7 +333,7 @@ export function SecurityDoc() {
 export function IntegrationsDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">Integrations</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">Integrations</h1>
       <div className="grid gap-3 sm:grid-cols-2">
         {[
           ['Dashboard', 'Web vault UI — workspaces, secrets, API keys, audit'],
@@ -343,17 +343,17 @@ export function IntegrationsDoc() {
           ['Java SDK', 'com.maheshshinde:cryptenv-sdk'],
           ['REST / OpenAPI', 'https://cryptenv-backend.onrender.com/swagger-ui.html'],
         ].map(([t, d]) => (
-          <div key={t} className="rounded-xl border border-border/70 p-4 bg-card/40">
+          <div key={t} className="rounded-lg border border-border p-4">
             <p className="font-semibold">{t}</p>
             <p className="text-sm text-muted-foreground mt-1">{d}</p>
           </div>
         ))}
       </div>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/security" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/security" className="text-muted-foreground hover:text-foreground">
           ← Security
         </Link>
-        <Link to="/docs/sdks" className="text-primary font-medium hover:underline">
+        <Link to="/docs/sdks" className="text-foreground hover:underline">
           Next: SDKs →
         </Link>
       </div>
@@ -364,7 +364,7 @@ export function IntegrationsDoc() {
 export function SdksDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold">SDKs</h1>
+      <h1 className="text-3xl font-light tracking-[-0.02em]">SDKs</h1>
       <h2 className="text-xl font-semibold">Node (@cryptenv/sdk 1.1+)</h2>
       <Code>{`npm install @cryptenv/sdk
 # .env: CRYPTENV_EMAIL, CRYPTENV_PASSWORD, CRYPTENV_WORKSPACE_ENCRYPTION_KEY
@@ -376,10 +376,10 @@ const db = CryptEnv.get('DATABASE_URL')`}</Code>
 // or new CryptEnvClient("https://cryptenv-backend.onrender.com", apiKey);
 String value = client.getSecret("DATABASE_URL");`}</Code>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/integrations" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/integrations" className="text-muted-foreground hover:text-foreground">
           ← Integrations
         </Link>
-        <Link to="/docs/tutorials" className="text-primary font-medium hover:underline">
+        <Link to="/docs/tutorials" className="text-foreground hover:underline">
           Next: Tutorials →
         </Link>
       </div>
@@ -390,7 +390,7 @@ String value = client.getSecret("DATABASE_URL");`}</Code>
 export function TutorialsDoc() {
   return (
     <article className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold flex items-center gap-3">
+      <h1 className="flex items-center gap-3 text-3xl font-light tracking-[-0.02em]">
         Tutorials <span className="text-xs font-medium rounded-full bg-muted px-2 py-1 text-muted-foreground">Soon</span>
       </h1>
       <p className="text-muted-foreground">
@@ -398,10 +398,10 @@ export function TutorialsDoc() {
         CLI Reference for now.
       </p>
       <div className="flex justify-between pt-4 border-t">
-        <Link to="/docs/sdks" className="text-muted-foreground hover:text-primary">
+        <Link to="/docs/sdks" className="text-muted-foreground hover:text-foreground">
           ← SDKs
         </Link>
-        <Link to="/overview" className="text-primary font-medium hover:underline">
+        <Link to="/overview" className="text-foreground hover:underline">
           Back to Dashboard →
         </Link>
       </div>

@@ -35,26 +35,22 @@ export function Login() {
   })
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 brand-gradient opacity-[0.12]" />
-      <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-violet-500/20 blur-3xl" />
-
-      <div className="relative w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center text-center gap-3">
-          <Link to="/">
-            <BrandLogo size="xl" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-16">
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Link to="/" className="inline-flex items-center gap-2.5">
+            <BrandLogo size="md" />
+            <span className="text-lg font-normal tracking-[-0.02em]">CryptEnv</span>
           </Link>
-          <h1 className="text-4xl font-bold tracking-tight brand-text">CryptEnv</h1>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            Encrypted environment secrets for modern teams — vaulted, isolated, and ready for runtime.
+          <p className="text-sm text-muted-foreground">
+            Encrypted environment secrets for modern teams.
           </p>
         </div>
 
-        <div className="glass-panel surface-glow rounded-2xl p-6 sm:p-8">
+        <div className="mt-10 rounded-lg border border-border p-6 sm:p-7">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold">Sign in</h2>
-            <p className="text-sm text-muted-foreground mt-1">Use your CryptEnv account credentials</p>
+            <h1 className="text-2xl font-light tracking-[-0.02em]">Sign in</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">Use your CryptEnv account credentials</p>
           </div>
           <form
             onSubmit={(e) => {
@@ -97,17 +93,22 @@ export function Login() {
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full brand-gradient border-0 text-white" disabled={loginMutation.isPending}>
+            <Button type="submit" className="h-[53px] w-full" disabled={loginMutation.isPending}>
               {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
           <p className="mt-5 text-center text-sm text-muted-foreground">
             New here?{' '}
-            <Link to="/register" className="text-primary font-semibold hover:underline">
+            <Link to="/register" className="text-foreground hover:underline">
               Create an account
             </Link>
           </p>
         </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          <Link to="/" className="hover:text-foreground">
+            Back to home
+          </Link>
+        </p>
       </div>
     </div>
   )
