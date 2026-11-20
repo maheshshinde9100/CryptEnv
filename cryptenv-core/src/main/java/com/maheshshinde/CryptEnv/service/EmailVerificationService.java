@@ -70,6 +70,11 @@ public class EmailVerificationService {
         tokenRepository.delete(token);
     }
 
+    /** True when a JavaMailSender bean exists, i.e. spring.mail.host is configured. */
+    public boolean isMailConfigured() {
+        return mailSender.getIfAvailable() != null;
+    }
+
     private void send(String email, String code) {
         JavaMailSender sender = mailSender.getIfAvailable();
         if (sender == null) {

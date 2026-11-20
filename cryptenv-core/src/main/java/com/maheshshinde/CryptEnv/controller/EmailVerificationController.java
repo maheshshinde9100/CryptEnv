@@ -31,6 +31,12 @@ public class EmailVerificationController {
         return ResponseEntity.ok(Map.of("message", "If an account needs verification, a code has been sent."));
     }
 
+    /** Lets the sign-up UI warn when this deployment cannot send verification mail. */
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Boolean>> status() {
+        return ResponseEntity.ok(Map.of("mailConfigured", verificationService.isMailConfigured()));
+    }
+
     public record EmailRequest(@NotBlank @Email String email) {}
     public record VerifyRequest(@NotBlank @Email String email, @NotBlank @Pattern(regexp = "\\d{6}") String code) {}
 }
