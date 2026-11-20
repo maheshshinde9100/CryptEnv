@@ -37,6 +37,7 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   verifyEmail: (email, code) => api.post('/auth/email-verification/verify', { email, code }),
   resendVerification: (email) => api.post('/auth/email-verification/resend', { email }),
+  verificationStatus: () => api.get('/auth/email-verification/status'),
   logout: (everywhere = false) => api.post('/auth/logout', null, { params: { everywhere } }),
   getCurrentUser: () => api.get('/auth/me'),
   regenerateApiKey: () => api.post('/auth/api-key/regenerate'),
