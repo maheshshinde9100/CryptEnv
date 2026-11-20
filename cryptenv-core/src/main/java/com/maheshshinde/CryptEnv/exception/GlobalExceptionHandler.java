@@ -1,5 +1,6 @@
 package com.maheshshinde.CryptEnv.exception;
 
+import com.maheshshinde.CryptEnv.provider.ProviderException;
 import lombok.extern.slf4j.Slf4j;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -133,6 +134,19 @@ public class GlobalExceptionHandler {
                 "Invalid input parameters",
                 request.getDescription(false),
                 errors
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ProviderException.class)
+    public ResponseEntity<ErrorResponse> handleProviderException(
+            ProviderException ex, WebRequest request) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Provider Error",
+                ex.getMessage(),
+                request.getDescription(false)
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
