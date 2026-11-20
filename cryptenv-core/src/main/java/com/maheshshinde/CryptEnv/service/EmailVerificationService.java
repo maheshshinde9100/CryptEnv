@@ -80,7 +80,12 @@ public class EmailVerificationService {
         message.setTo(email);
         message.setSubject("Your CryptEnv verification code");
         message.setText("Your CryptEnv verification code is " + code + ". It expires in " + TTL_MINUTES + " minutes.");
-        sender.send(message);
+        try {
+            sender.send(message);
+        } catch (RuntimeException e) {
+            // A mail outage must not fail registration; the user can request a resend.
+            log.warn("Could not send verification email to {}: {}", email, e.getMessage());
+        }
     }
 
     private String hash(String value) {
