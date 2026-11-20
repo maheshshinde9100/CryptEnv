@@ -1,5 +1,6 @@
 package com.maheshshinde.CryptEnv.controller;
 
+import com.maheshshinde.CryptEnv.dto.AuditLogDto;
 import com.maheshshinde.CryptEnv.model.AuditLog;
 import com.maheshshinde.CryptEnv.model.Permission;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
@@ -29,7 +30,8 @@ public class AuditLogController {
 
     @GetMapping
     @Operation(summary = "Get audit logs with filters")
-    public ResponseEntity<Page<AuditLog>> getAuditLogs(
+    public ResponseEntity<Page<AuditLogDto>> getAuditLogs(
+            @RequestParam(required = false) Long workspaceId,
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String resourceType,
@@ -47,8 +49,8 @@ public class AuditLogController {
             Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<AuditLog> logs = auditLogService.getFilteredAuditLogs(
-            userId, action, resourceType, startDate, endDate, success, pageable
+        Page<AuditLogDto> logs = auditLogService.getFilteredAuditLogs(
+            workspaceId, userId, action, resourceType, startDate, endDate, success, pageable
         );
 
         return ResponseEntity.ok(logs);
@@ -56,7 +58,7 @@ public class AuditLogController {
 
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get audit logs for a specific user")
-    public ResponseEntity<Page<AuditLog>> getUserAuditLogs(
+    public ResponseEntity<Page<AuditLogDto>> getUserAuditLogs(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -64,14 +66,14 @@ public class AuditLogController {
         securityService.checkPermission(Permission.AUDIT_READ);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
-        Page<AuditLog> logs = auditLogService.getUserAuditLogs(userId, pageable);
+        Page<AuditLogDto> logs = auditLogService.getUserAuditLogs(userId, pageable);
 
         return ResponseEntity.ok(logs);
     }
 
     @GetMapping("/action/{action}")
     @Operation(summary = "Get audit logs by action type")
-    public ResponseEntity<Page<AuditLog>> getAuditLogsByAction(
+    public ResponseEntity<Page<AuditLogDto>> getAuditLogsByAction(
             @PathVariable String action,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -79,14 +81,14 @@ public class AuditLogController {
         securityService.checkPermission(Permission.AUDIT_READ);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
-        Page<AuditLog> logs = auditLogService.getAuditLogsByAction(action, pageable);
+        Page<AuditLogDto> logs = auditLogService.getAuditLogsByAction(action, pageable);
 
         return ResponseEntity.ok(logs);
     }
 
     @GetMapping("/resource/{resourceType}/{resourceId}")
     @Operation(summary = "Get audit logs for a specific resource")
-    public ResponseEntity<Page<AuditLog>> getResourceAuditLogs(
+    public ResponseEntity<Page<AuditLogDto>> getResourceAuditLogs(
             @PathVariable String resourceType,
             @PathVariable String resourceId,
             @RequestParam(defaultValue = "0") int page,
@@ -95,14 +97,14 @@ public class AuditLogController {
         securityService.checkPermission(Permission.AUDIT_READ);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
-        Page<AuditLog> logs = auditLogService.getResourceAuditLogs(resourceType, resourceId, pageable);
+        Page<AuditLogDto> logs = auditLogService.getResourceAuditLogs(resourceType, resourceId, pageable);
 
         return ResponseEntity.ok(logs);
     }
 
     @GetMapping("/workspace/{workspaceId}")
     @Operation(summary = "Get audit logs scoped to a workspace")
-    public ResponseEntity<Page<AuditLog>> getWorkspaceAuditLogs(
+    public ResponseEntity<Page<AuditLogDto>> getWorkspaceAuditLogs(
             @PathVariable Long workspaceId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {

@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -26,8 +25,8 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "user_id")
     private User user;
 
     @Column(nullable = false, length = 50)
@@ -62,7 +61,13 @@ public class AuditLog {
     @Column(name = "workspace_id")
     private Long workspaceId;
 
-    @CreationTimestamp
     @Column(name = "timestamp", nullable = false, updatable = false)
     private LocalDateTime timestamp;
+
+    @PrePersist
+    void prePersist() {
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
+        }
+    }
 }
