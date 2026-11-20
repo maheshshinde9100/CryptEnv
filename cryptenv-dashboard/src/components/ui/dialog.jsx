@@ -1,21 +1,44 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
-const Dialog = ({ open, onOpenChange, children }) => {
+function Dialog({ open, onOpenChange, children }) {
+  React.useEffect(() => {
+    if (!open) return undefined
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onOpenChange(false)
+    }
+    document.addEventListener("keydown", onKeyDown)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open, onOpenChange])
+
   if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
-      <div className="relative z-50">{children}</div>
-    </div>
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/70"
+        onClick={() => onOpenChange(false)}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 w-full max-w-lg">{children}</div>
+    </div>,
+    document.body
   )
 }
 
 const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
+    role="dialog"
+    aria-modal="true"
     className={cn(
-      "relative left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
+      "max-h-[85vh] w-full overflow-y-auto rounded-lg border border-border bg-card p-6",
       className
     )}
     {...props}
@@ -26,39 +49,26 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
 DialogContent.displayName = "DialogContent"
 
 const DialogHeader = ({ className, ...props }) => (
-  <div
-    className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)}
-    {...props}
-  />
+  <div className={cn("mb-5 flex flex-col gap-1.5", className)} {...props} />
 )
 DialogHeader.displayName = "DialogHeader"
 
 const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
   <h2
     ref={ref}
-    className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+    className={cn("text-xl font-normal tracking-[-0.02em]", className)}
     {...props}
   />
 ))
 DialogTitle.displayName = "DialogTitle"
 
 const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
-  <p
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
+  <p ref={ref} className={cn("text-sm leading-relaxed text-muted-foreground", className)} {...props} />
 ))
 DialogDescription.displayName = "DialogDescription"
 
 const DialogFooter = ({ className, ...props }) => (
-  <div
-    className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
-      className
-    )}
-    {...props}
-  />
+  <div className={cn("mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)} {...props} />
 )
 DialogFooter.displayName = "DialogFooter"
 

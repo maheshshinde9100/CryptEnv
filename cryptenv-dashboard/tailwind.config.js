@@ -1,3 +1,5 @@
+import tailwindcssAnimate from 'tailwindcss-animate'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
@@ -20,6 +22,11 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        tertiary: "#6D7CFF",
+        danger: "#FF6B6B",
+        surface: "#1A1A1A",
+        neutral: "#121212",
+        ink: "#B7B7B7",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -50,9 +57,19 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm: "4px",
+        md: "8px",
+        lg: "12px",
+        xl: "12px",
+        "2xl": "12px",
+        DEFAULT: "8px",
+      },
+      maxWidth: {
+        content: "1120px",
+      },
+      spacing: {
+        18: "4.5rem",
+        22: "5.5rem",
       },
       keyframes: {
         "accordion-down": {
@@ -70,5 +87,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 }
