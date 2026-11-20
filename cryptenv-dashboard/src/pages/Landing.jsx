@@ -68,6 +68,46 @@ const STEPS = [
   },
 ]
 
+function useLandingMotion() {
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.add('scroll-smooth')
+
+    const nodes = Array.from(document.querySelectorAll('.reveal'))
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (reduced || !('IntersectionObserver' in window)) {
+      nodes.forEach((node) => node.setAttribute('data-visible', 'true'))
+      return () => root.classList.remove('scroll-smooth')
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.setAttribute('data-visible', 'true')
+            observer.unobserve(entry.target)
+          }
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.12 }
+    )
+
+    nodes.forEach((node) => {
+      if (node.getBoundingClientRect().top < window.innerHeight * 0.92) {
+        node.setAttribute('data-visible', 'true')
+      } else {
+        observer.observe(node)
+      }
+    })
+
+    return () => {
+      observer.disconnect()
+      root.classList.remove('scroll-smooth')
+    }
+  }, [])
+}
+
 const TOOLS = [
   {
     title: 'Dashboard',
@@ -103,6 +143,8 @@ export function Landing() {
     setAuthed(Boolean(localStorage.getItem('token')))
   }, [])
 
+  useLandingMotion()
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-background">
@@ -111,16 +153,16 @@ export function Landing() {
             <BrandWordmark size="sm" />
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            <a href="#features" className="transition-colors hover:text-foreground">
+            <a href="#features" className="relative transition-colors after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-tertiary after:transition-transform after:duration-300 hover:text-foreground hover:after:scale-x-100">
               Features
             </a>
-            <a href="#how" className="transition-colors hover:text-foreground">
+            <a href="#how" className="relative transition-colors after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-tertiary after:transition-transform after:duration-300 hover:text-foreground hover:after:scale-x-100">
               How it works
             </a>
-            <a href="#tools" className="transition-colors hover:text-foreground">
+            <a href="#tools" className="relative transition-colors after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-tertiary after:transition-transform after:duration-300 hover:text-foreground hover:after:scale-x-100">
               Tools
             </a>
-            <a href="#security" className="transition-colors hover:text-foreground">
+            <a href="#security" className="relative transition-colors after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-tertiary after:transition-transform after:duration-300 hover:text-foreground hover:after:scale-x-100">
               Security
             </a>
           </nav>
@@ -149,24 +191,33 @@ export function Landing() {
       <main>
         <section className="mx-auto max-w-content px-4 pb-16 pt-20 sm:px-6 sm:pt-28">
           <div className="mx-auto max-w-3xl space-y-7 text-center">
-            <p className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+            <p
+              className="hero-rise inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground"
+              style={{ '--rise-delay': '0ms' }}
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-tertiary" />
               Encrypted secrets. Zero local .env files.
             </p>
-            <h1 className="text-4xl font-light leading-[1.1] tracking-[-0.03em] sm:text-6xl">
+            <h1
+              className="hero-rise text-4xl font-light leading-[1.1] tracking-[-0.03em] sm:text-6xl"
+              style={{ '--rise-delay': '70ms' }}
+            >
               Build without secrets leaking
             </h1>
-            <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p
+              className="hero-rise mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
+              style={{ '--rise-delay': '150ms' }}
+            >
               CryptEnv is a secrets platform for teams. Store API keys and database URLs encrypted in the cloud,
               then inject them at runtime through the dashboard, CLI, editor or SDKs.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="hero-rise flex flex-wrap items-center justify-center gap-3" style={{ '--rise-delay': '230ms' }}>
               <Link
                 to="/register"
-                className="inline-flex h-[53px] items-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-white/90"
+                className="group inline-flex h-[53px] items-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-white/90"
               >
                 Create a free account
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="arrow-slide h-4 w-4" />
               </Link>
               <a
                 href="https://www.npmjs.com/package/cryptenv-cli"
@@ -178,7 +229,10 @@ export function Landing() {
                 npm i -g cryptenv-cli
               </a>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 pt-1 text-xs text-muted-foreground">
+            <div
+              className="hero-rise flex flex-wrap justify-center gap-2 pt-1 text-xs text-muted-foreground"
+              style={{ '--rise-delay': '310ms' }}
+            >
               {['AES-256-GCM', 'Workspace isolation', 'Four-eyes approvals', 'CI-ready'].map((tag) => (
                 <span key={tag} className="chip">
                   {tag}
@@ -187,7 +241,10 @@ export function Landing() {
             </div>
           </div>
 
-          <div className="mx-auto mt-16 max-w-4xl overflow-hidden rounded-lg border border-border">
+          <div
+            className="hero-rise mx-auto mt-16 max-w-4xl overflow-hidden rounded-lg border border-border"
+            style={{ '--rise-delay': '400ms' }}
+          >
             <div className="flex items-center gap-2 border-b border-border px-4 py-3">
               <span className="h-2 w-2 rounded-full bg-white/20" />
               <span className="h-2 w-2 rounded-full bg-white/20" />
@@ -227,18 +284,22 @@ export function Landing() {
         </section>
 
         <section id="features" className="mx-auto max-w-content px-4 py-16 sm:px-6 sm:py-20">
-          <div className="mb-10 max-w-2xl">
+          <div className="reveal mb-10 max-w-2xl">
             <h2 className="text-3xl font-light tracking-[-0.02em]">Everything a secrets vault needs</h2>
             <p className="mt-3 text-muted-foreground">
               One backend, four clients — dashboard, CLI, editor and SDKs — talking to the same encrypted API.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature) => {
+            {FEATURES.map((feature, index) => {
               const Icon = feature.icon
               return (
-                <article key={feature.title} className="space-y-3 rounded-lg border border-border p-5">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-ink">
+                <article
+                  key={feature.title}
+                  className="reveal lift group space-y-3 rounded-lg border border-border p-5 hover:border-white/[0.16]"
+                  style={{ '--reveal-delay': `${index * 55}ms` }}
+                >
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-ink transition-colors group-hover:text-tertiary">
                     <Icon className="h-4 w-4" />
                   </span>
                   <h3 className="text-sm font-medium">{feature.title}</h3>
@@ -250,17 +311,21 @@ export function Landing() {
         </section>
 
         <section id="how" className="mx-auto max-w-content px-4 py-16 sm:px-6 sm:py-20">
-          <h2 className="mb-10 text-3xl font-light tracking-[-0.02em]">How it works</h2>
+          <h2 className="reveal mb-10 text-3xl font-light tracking-[-0.02em]">How it works</h2>
           <div className="grid gap-4 md:grid-cols-3">
-            {STEPS.map((step) => (
-              <article key={step.n} className="space-y-3 rounded-lg border border-border p-6">
+            {STEPS.map((step, index) => (
+              <article
+                key={step.n}
+                className="reveal lift space-y-3 rounded-lg border border-border p-6 hover:border-white/[0.16]"
+                style={{ '--reveal-delay': `${index * 70}ms` }}
+              >
                 <p className="font-mono text-xs text-tertiary">{step.n}</p>
                 <h3 className="text-base">{step.title}</h3>
                 <p className="text-sm leading-relaxed text-muted-foreground">{step.body}</p>
               </article>
             ))}
           </div>
-          <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface p-5 font-mono text-sm">
+          <div className="reveal mt-6 overflow-x-auto rounded-lg border border-border bg-surface p-5 font-mono text-sm" style={{ '--reveal-delay': '220ms' }}>
             <p className="text-muted-foreground">$ npm install -g cryptenv-cli</p>
             <p className="text-muted-foreground">$ cryptenv login</p>
             <p>$ cryptenv run -- npm start</p>
@@ -269,10 +334,12 @@ export function Landing() {
         </section>
 
         <section id="tools" className="mx-auto max-w-content px-4 py-16 sm:px-6 sm:py-20">
-          <h2 className="mb-3 text-3xl font-light tracking-[-0.02em]">Use CryptEnv where you already work</h2>
-          <p className="mb-8 max-w-2xl text-muted-foreground">Same vault. Same encryption. Pick the client that fits the job.</p>
+          <h2 className="reveal mb-3 text-3xl font-light tracking-[-0.02em]">Use CryptEnv where you already work</h2>
+          <p className="reveal mb-8 max-w-2xl text-muted-foreground" style={{ '--reveal-delay': '60ms' }}>
+            Same vault. Same encryption. Pick the client that fits the job.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {TOOLS.map((tool) => {
+            {TOOLS.map((tool, index) => {
               const Icon = tool.icon
               return (
                 <a
@@ -280,7 +347,8 @@ export function Landing() {
                   href={tool.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="group rounded-lg border border-border p-5 transition-colors hover:bg-white/[0.02]"
+                  className="reveal lift group rounded-lg border border-border p-5 hover:border-white/[0.16] hover:bg-white/[0.02]"
+                  style={{ '--reveal-delay': `${index * 55}ms` }}
                 >
                   <Icon className="mb-3 h-5 w-5 text-muted-foreground transition-colors group-hover:text-tertiary" />
                   <p className="text-sm">{tool.title}</p>
@@ -292,7 +360,7 @@ export function Landing() {
         </section>
 
         <section id="security" className="mx-auto max-w-content px-4 py-16 sm:px-6 sm:py-20">
-          <div className="grid items-center gap-8 rounded-lg border border-border p-6 sm:p-10 md:grid-cols-2">
+          <div className="reveal grid items-center gap-8 rounded-lg border border-border p-6 sm:p-10 md:grid-cols-2">
             <div>
               <h2 className="text-3xl font-light tracking-[-0.02em]">
                 Designed so a stolen laptop is not a stolen vault
@@ -324,7 +392,7 @@ export function Landing() {
         </section>
 
         <section className="mx-auto max-w-content px-4 pb-20 sm:px-6">
-          <div className="rounded-lg border border-border p-8 text-center sm:p-12">
+          <div className="reveal rounded-lg border border-border p-8 text-center sm:p-12">
             <h2 className="text-3xl font-light tracking-[-0.02em] sm:text-4xl">Ship the app. Keep the secrets.</h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
               Create a workspace in minutes. Inject secrets on the next run.
