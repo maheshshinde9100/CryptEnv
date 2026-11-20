@@ -86,6 +86,27 @@ public class EnvironmentController {
         return ResponseEntity.ok(environmentResponse);
     }
 
+    @PatchMapping("/{id}")
+    @Operation(summary = "Update environment label, active status, or protection (owner/admin)")
+    public ResponseEntity<EnvironmentResponseDto> updateEnvironment(@PathVariable Long id,
+                                                                    @RequestBody java.util.Map<String, Object> body,
+                                                                    HttpServletRequest request) {
+        securityService.checkPermission(Permission.WORKSPACE_WRITE);
+        Boolean isActive = body.get("isActive") == null ? null : Boolean.valueOf(body.get("isActive").toString());
+        Boolean isProtected = body.get("isProtected") == null ? null : Boolean.valueOf(body.get("isProtected").toString());
+        String label = body.get("label") == null ? null : body.get("label").toString();
+        EnvironmentResponseDto environmentResponse = environmentService.updateEnvironment(id, isActive, isProtected, label);
+        auditLogService.logEvent(
+                securityService.getCurrentUser(),
+                "ENVIRONMENT_UPDATE",
+                "ENVIRONMENT",
+                id.toString(),
+                true,
+                request
+        );
+        return ResponseEntity.ok(environmentResponse);
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete an environment (owner only)")
     public ResponseEntity<Void> deleteEnvironment(@PathVariable Long id, HttpServletRequest request) {

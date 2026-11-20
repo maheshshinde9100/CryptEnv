@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,103 +6,168 @@
 
 @layer base {
   :root {
-    --background: 230 25% 98%;
-    --foreground: 230 30% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 230 30% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 230 30% 8%;
-    --primary: 210 100% 52%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 230 20% 94%;
-    --secondary-foreground: 230 30% 15%;
-    --muted: 230 18% 94%;
-    --muted-foreground: 230 10% 42%;
-    --accent: 258 70% 96%;
-    --accent-foreground: 258 55% 35%;
-    --destructive: 0 78% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 230 16% 88%;
-    --input: 230 16% 88%;
-    --ring: 210 100% 52%;
-    --radius: 0.75rem;
-    --brand-from: #38bdf8;
-    --brand-to: #7c3aed;
-    --glow: 210 100% 52% / 0.18;
-  }
-
-  .dark {
-    --background: 230 35% 5%;
-    --foreground: 210 40% 98%;
-    --card: 230 30% 8%;
-    --card-foreground: 210 40% 98%;
-    --popover: 230 30% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 199 95% 55%;
-    --primary-foreground: 230 40% 6%;
-    --secondary: 230 25% 14%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 230 22% 12%;
-    --muted-foreground: 220 15% 65%;
-    --accent: 258 40% 16%;
-    --accent-foreground: 258 90% 85%;
-    --destructive: 0 70% 45%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 230 20% 16%;
-    --input: 230 20% 16%;
-    --ring: 199 95% 55%;
-    --glow: 199 95% 55% / 0.22;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 7%;
+    --secondary: 0 0% 72%;
+    --secondary-foreground: 0 0% 7%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 220 7% 57%;
+    --accent: 0 0% 16%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 100% 71%;
+    --destructive-foreground: 0 0% 7%;
+    --border: 217 19% 27%;
+    --input: 217 19% 24%;
+    --ring: 233 100% 71%;
+    --radius: 8px;
   }
 
   html {
+    color-scheme: dark;
     font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    background-image:
-      radial-gradient(ellipse 80% 50% at 10% -10%, hsl(var(--glow)), transparent 55%),
-      radial-gradient(ellipse 60% 40% at 100% 0%, hsl(258 70% 50% / 0.12), transparent 50%);
-    background-attachment: fixed;
     min-height: 100vh;
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.03em;
+    font-weight: 300;
   }
 
   code, .font-mono {
     font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
+
+  ::selection {
+    background: rgba(109, 124, 255, 0.28);
+  }
+
+  *:focus-visible {
+    outline: 2px solid #6D7CFF;
+    outline-offset: 2px;
+  }
 }
 
-@layer utilities {
-  .brand-gradient {
-    background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+@layer components {
+  /* Flat, tonal surfaces. Depth comes from layer contrast, never shadows. */
+  .surface {
+    @apply rounded-lg border border-border bg-card;
   }
 
-  .brand-text {
-    background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  .page-title {
+    @apply text-3xl font-light tracking-[-0.03em] sm:text-4xl;
   }
 
-  .glass-panel {
-    @apply border border-border/60 bg-card/80 backdrop-blur-xl shadow-sm;
+  .page-subtitle {
+    @apply mt-1 text-sm text-muted-foreground;
   }
 
-  .surface-glow {
-    box-shadow: 0 0 0 1px hsl(var(--border)), 0 20px 50px -28px hsl(var(--glow));
+  .eyebrow {
+    @apply text-xs font-medium text-muted-foreground;
   }
 
-  .landing-grid {
-    background-size: 48px 48px;
-    background-image:
-      linear-gradient(to right, hsl(var(--border) / 0.55) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--border) / 0.55) 1px, transparent 1px);
-    mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, #000 35%, transparent 75%);
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-secondary;
+  }
+
+  .data-row {
+    @apply border-b border-border/60 last:border-0;
+  }
+}
+
+/* Landing motion: short, eased, and fully disabled for reduced-motion users. */
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes landing-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hero-rise {
+  animation: landing-rise 720ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--rise-delay, 0ms);
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 640ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 640ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Uses the standalone `translate` property so it composes with reveal's `transform`. */
+.lift {
+  transition:
+    translate 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 240ms ease,
+    background-color 240ms ease;
+}
+
+.lift:hover {
+  translate: 0 -2px;
+}
+
+.reveal.lift {
+  transition:
+    opacity 640ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 640ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    translate 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 240ms ease,
+    background-color 240ms ease;
+  transition-delay: var(--reveal-delay, 0ms), var(--reveal-delay, 0ms), 0ms, 0ms, 0ms;
+}
+
+.arrow-slide {
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.group:hover .arrow-slide {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise,
+  .reveal {
+    animation: landing-fade 1ms both;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .lift:hover {
+    translate: none;
+  }
+
+  .group:hover .arrow-slide {
+    transform: none;
   }
 }

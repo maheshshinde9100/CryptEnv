@@ -25,7 +25,7 @@ public class SecurityIncident {
     @Column(name = "affected_secrets", columnDefinition = "TEXT") private String affectedSecrets;
     @Column(name = "affected_versions", columnDefinition = "TEXT") private String affectedVersions;
     @Column(name = "quarantine_actions", columnDefinition = "TEXT") private String quarantineActions;
-    @Column(name = "timeline", columnDefinition = "JSONB") private String timeline;
+    @Column(name = "timeline", columnDefinition = "TEXT") private String timeline;
     @Column(name = "post_mortem", columnDefinition = "TEXT") private String postMortem;
     @CreationTimestamp @Column(name = "created_at", updatable = false) private LocalDateTime createdAt;
     @UpdateTimestamp @Column(name = "updated_at") private LocalDateTime updatedAt;

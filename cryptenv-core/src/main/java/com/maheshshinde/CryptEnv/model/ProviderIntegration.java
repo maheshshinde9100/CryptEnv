@@ -8,7 +8,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * A connected external secret provider (GitHub, Vercel, Cloudflare, Kubernetes, ...).
+ * A connected external secret provider (GitHub, Vercel, Cloudflare, GitLab, ...).
  * Credentials are stored as master-key encrypted ciphertext; only {@code hasCredentials}
  * is exposed to clients.
  */

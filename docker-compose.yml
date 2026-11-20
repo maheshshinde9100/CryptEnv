@@ -1,8 +1,7 @@
 version: '3.8'
 
-# Local stack: Postgres + Redis + MailHog + API + Dashboard.
+# Local stack: Postgres + MailHog + API + Dashboard.
 # Passwords below are for LOCAL DEV ONLY — never reuse in production.
-# Copy cryptenv-core/src/main/resources/application.properties.example for non-Docker runs.
 
 services:
   postgres:
@@ -20,17 +19,6 @@ services:
       test: ["CMD-SHELL", "pg_isready -U cryptenv -d cryptenv"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: cryptenv-redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
       retries: 5
 
   mailhog:
@@ -51,19 +39,19 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/cryptenv
       DB_USER: cryptenv
       DB_PASS: cryptenv_password
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cryptenv
-      SPRING_DATASOURCE_USERNAME: cryptenv
-      SPRING_DATASOURCE_PASSWORD: cryptenv_password
       JWT_SECRET: local-dev-jwt-secret-change-me-use-openssl-rand-hex-32
       JWT_EXPIRATION: 900000
-      MASTER_ENCRYPTION_KEY: local-dev-master-key-change-me-32b!!
+      # Base64 of 32 bytes — valid locally, NEVER use in production.
+      MASTER_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
       RATE_LIMIT_TRUST_PROXY: "false"
       SPRINGDOC_ENABLED: "true"
+      # Local SMTP — view captured mail at http://localhost:8025
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
+      CRYPTENV_NOTIFICATIONS_FROM: no-reply@cryptenv.local
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   dashboard:

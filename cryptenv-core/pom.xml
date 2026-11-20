@@ -135,19 +135,6 @@
 			<artifactId>spring-boot-starter-oauth2-client</artifactId>
 		</dependency>
 
-		<!-- WebAuthn/FIDO2 support -->
-		<dependency>
-			<groupId>com.yubico</groupId>
-			<artifactId>webauthn-server-core</artifactId>
-			<version>2.5.0</version>
-		</dependency>
-
-		<!-- Redis for rate limiting and caching -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-redis</artifactId>
-		</dependency>
-
 		<!-- Spring Actuator for metrics and health checks -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

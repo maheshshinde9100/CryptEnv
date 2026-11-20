@@ -1,21 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { secretsAPI, environmentAPI } from '../lib/api'
+import { secretsAPI, environmentAPI, authAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
 import { Skeleton } from '../components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Search, Plus, Eye, EyeOff, Trash2, Edit, Lock, Copy, History } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog'
+import { Search, Plus, Eye, EyeOff, Trash2, Edit, Copy, History, Download, ShieldCheck } from 'lucide-react'
 
 export function Secrets() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { activeWorkspace } = useOutletContext() || {}
+  const { activeWorkspace, user } = useOutletContext() || {}
   const [searchQuery, setSearchQuery] = useState('')
-  const [visibleSecrets, setVisibleSecrets] = useState({})
   const [envFilter, setEnvFilter] = useState('all')
+  const [revealed, setRevealed] = useState({})
+  const [revealTarget, setRevealTarget] = useState(null)
+  const [totpCode, setTotpCode] = useState('')
+  const [stepUpToken, setStepUpToken] = useState('')
+  const [revealPending, setRevealPending] = useState(false)
   const revealTimers = useRef(new Map())
 
   useEffect(() => () => {
@@ -45,7 +51,7 @@ export function Secrets() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (key) => secretsAPI.delete(key),
+    mutationFn: ({ environmentId, key }) => secretsAPI.deleteFromEnvironment(environmentId, key),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['secrets'] })
       toast.success('Secret deleted')
@@ -54,82 +60,162 @@ export function Secrets() {
   })
 
   const filtered = useMemo(
-    () =>
-      secrets.filter((s) => s.key?.toLowerCase().includes(searchQuery.toLowerCase())),
+    () => secrets.filter((s) => s.key?.toLowerCase().includes(searchQuery.toLowerCase())),
     [secrets, searchQuery]
   )
 
-  const envName = (id) => environments.find((e) => e.id === id)?.name || '—'
+  const envName = (id) => {
+    const env = environments.find((e) => e.id === id)
+    return env ? env.displayName || env.label || env.name : '—'
+  }
 
   const secretId = (secret) => `${secret.environmentId}:${secret.key}`
 
-  const toggleVisibility = (secret) => {
+  const hideSecret = (secret) => {
     const id = secretId(secret)
-    const isShown = !!visibleSecrets[id]
-    const activeTimer = revealTimers.current.get(id)
-    if (activeTimer) clearTimeout(activeTimer)
+    const timer = revealTimers.current.get(id)
+    if (timer) clearTimeout(timer)
+    revealTimers.current.delete(id)
+    setRevealed((previous) => {
+      const next = { ...previous }
+      delete next[id]
+      return next
+    })
+  }
 
-    setVisibleSecrets((previous) => ({ ...previous, [id]: !isShown }))
-    if (!isShown) {
-      revealTimers.current.set(
-        id,
-        setTimeout(() => {
-          setVisibleSecrets((previous) => ({ ...previous, [id]: false }))
-          revealTimers.current.delete(id)
-        }, 30_000)
-      )
-    } else {
-      revealTimers.current.delete(id)
+  const storeRevealed = (secret, value) => {
+    const id = secretId(secret)
+    setRevealed((previous) => ({ ...previous, [id]: value }))
+    revealTimers.current.set(
+      id,
+      setTimeout(() => hideSecret(secret), 30_000)
+    )
+  }
+
+  const requestReveal = async (secret) => {
+    if (revealed[secretId(secret)]) {
+      hideSecret(secret)
+      return
+    }
+    if (user?.mfaEnabled) {
+      setRevealTarget(secret)
+      setTotpCode('')
+      try {
+        const res = await authAPI.stepUp()
+        setStepUpToken(res.data.stepUpToken)
+      } catch (e) {
+        toast.error(e.response?.data?.message || 'Could not start MFA step-up')
+      }
+      return
+    }
+    try {
+      const res = await secretsAPI.reveal(secret.environmentId, secret.key)
+      storeRevealed(secret, res.data.value)
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Reveal failed')
     }
   }
 
-  const copyValue = async (value) => {
-    await navigator.clipboard.writeText(value || '')
+  const confirmMfaReveal = async () => {
+    if (!revealTarget) return
+    setRevealPending(true)
+    try {
+      await authAPI.verifyStepUp(stepUpToken, totpCode.trim())
+      const res = await secretsAPI.reveal(revealTarget.environmentId, revealTarget.key, {
+        stepUpToken,
+        totpCode: totpCode.trim(),
+      })
+      storeRevealed(revealTarget, res.data.value)
+      setRevealTarget(null)
+      setTotpCode('')
+      setStepUpToken('')
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Invalid verification code')
+    } finally {
+      setRevealPending(false)
+    }
+  }
+
+  const copyValue = async (secret) => {
+    const value = revealed[secretId(secret)]
+    if (!value) {
+      toast.error('Reveal the value first')
+      return
+    }
+    await navigator.clipboard.writeText(value)
     setTimeout(() => {
       navigator.clipboard.writeText('').catch(() => {})
     }, 30_000)
-    toast.success('Copied to clipboard. It will be cleared in 30 seconds.')
+    toast.success('Copied. Clipboard clears in 30 seconds.')
+  }
+
+  const exportEnvironment = async () => {
+    if (envFilter === 'all') {
+      toast.error('Select a single environment to export')
+      return
+    }
+    try {
+      const res = await secretsAPI.export(Number(envFilter), 'ENV')
+      const blob = new Blob([res.data], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `secrets-${envFilter}.env`
+      link.click()
+      URL.revokeObjectURL(url)
+      toast.success('Export downloaded')
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Export failed')
+    }
+  }
+
+  const mask = (secret) => {
+    const length = secret.value ? Math.min(28, Math.max(12, String(secret.value).length)) : 18
+    return '•'.repeat(length)
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="space-y-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1 text-xs text-muted-foreground mb-3">
-            <Lock className="h-3.5 w-3.5 text-primary" />
-            Values stored encrypted at rest · reveals and clipboard entries expire after 30 seconds
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Secrets</h1>
-          <p className="text-muted-foreground mt-1">
-            {activeWorkspace?.name || 'Workspace'} — manage encrypted keys for each environment
+          <p className="eyebrow">Secrets</p>
+          <h1 className="page-title mt-3">Encrypted keys</h1>
+          <p className="page-subtitle">
+            {activeWorkspace?.name || 'Workspace'} · values are decrypted only when revealed and every reveal is audited
           </p>
         </div>
-        <Button className="brand-gradient border-0 text-white" onClick={() => navigate('/secrets/new')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add secret
-        </Button>
-      </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportEnvironment}>
+            <Download className="h-4 w-4" />
+            Export .env
+          </Button>
+          <Button onClick={() => navigate('/secrets/new')}>
+            <Plus className="h-4 w-4" />
+            Add secret
+          </Button>
+        </div>
+      </header>
 
-      <div className="glass-panel rounded-2xl p-4 sm:p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
+      <div className="rounded-lg border border-border">
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by key…"
+              placeholder="Search by key"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
           </div>
           <Select value={envFilter} onValueChange={setEnvFilter}>
-            <SelectTrigger className="w-full sm:w-52">
+            <SelectTrigger className="w-full sm:w-56">
               <SelectValue placeholder="Environment" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All environments</SelectItem>
               {environments.map((env) => (
                 <SelectItem key={env.id} value={String(env.id)}>
-                  {env.name}
+                  {env.displayName || env.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -137,73 +223,63 @@ export function Secrets() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-2">
+          <div className="space-y-px">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-xl" />
+              <Skeleton key={i} className="h-16 w-full rounded-none" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-14 text-center text-muted-foreground">
-            {searchQuery ? 'No secrets match your search' : 'No secrets yet — add your first encrypted key'}
+          <div className="px-4 py-16 text-center text-sm text-muted-foreground">
+            {searchQuery ? 'No secrets match your search.' : 'No secrets yet. Add your first encrypted key.'}
           </div>
         ) : (
-          <div className="space-y-2">
+          <ul className="divide-y divide-border/60">
             {filtered.map((secret) => {
-              const shown = !!visibleSecrets[secretId(secret)]
-              const masked =
-                secret.value && !String(secret.value).startsWith('[')
-                  ? '•'.repeat(Math.min(24, Math.max(12, String(secret.value).length)))
-                  : '••••••••••••••••••••'
+              const shown = revealed[secretId(secret)]
               return (
-                <div
+                <li
                   key={`${secret.environmentId}-${secret.key}`}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border/70 bg-background/40 px-4 py-3 hover:border-primary/30 transition-colors"
+                  className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4"
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold font-mono text-sm truncate">{secret.key}</p>
-                      <span className="text-[10px] uppercase tracking-wide rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                        {envName(secret.environmentId)}
-                      </span>
-                      {secret.encrypted && (
-                        <span className="text-[10px] rounded-full bg-cyan-500/15 text-cyan-400 px-2 py-0.5">
-                          AES-GCM
-                        </span>
-                      )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-mono text-sm">{secret.key}</p>
+                      <span className="chip">{envName(secret.environmentId)}</span>
+                      {secret.encrypted && <span className="chip">AES-256-GCM</span>}
+                      {secret.autoRotate && <span className="chip">Rotating</span>}
                     </div>
-                    <code className="mt-1 block text-xs text-muted-foreground font-mono truncate">
-                      {shown ? secret.value : masked}
+                    <code className="mt-1.5 block truncate font-mono text-xs text-muted-foreground">
+                      {shown || mask(secret)}
                     </code>
                   </div>
                   <div className="flex items-center gap-1 self-end sm:self-center">
                     <Button
                       variant="ghost"
                       size="icon"
-                      title={shown ? 'Hide value' : 'Reveal for 30 seconds'}
-                      onClick={() => toggleVisibility(secret)}
+                      title={shown ? 'Hide' : 'Reveal for 30 seconds'}
+                      onClick={() => requestReveal(secret)}
                     >
                       {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Copy value (clears after 30 seconds)"
-                      onClick={() => copyValue(secret.value)}
-                      disabled={!secret.value || String(secret.value).startsWith('[')}
-                    >
+                    <Button variant="ghost" size="icon" title="Copy" onClick={() => copyValue(secret)}>
                       <Copy className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       title="Version history"
-                      onClick={() => navigate(`/secrets/${encodeURIComponent(secret.key)}/history`, { state: { environmentId: secret.environmentId } })}
+                      onClick={() =>
+                        navigate(`/secrets/${encodeURIComponent(secret.key)}/history`, {
+                          state: { environmentId: secret.environmentId },
+                        })
+                      }
                     >
                       <History className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="Edit"
                       onClick={() =>
                         navigate(`/secrets/${encodeURIComponent(secret.key)}/edit`, {
                           state: { environmentId: secret.environmentId },
@@ -215,19 +291,68 @@ export function Secrets() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="Delete"
                       onClick={() => {
-                        if (confirm(`Delete secret "${secret.key}"?`)) deleteMutation.mutate(secret.key)
+                        if (confirm(`Delete secret "${secret.key}" from ${envName(secret.environmentId)}?`)) {
+                          deleteMutation.mutate({ environmentId: secret.environmentId, key: secret.key })
+                        }
                       }}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className="h-4 w-4 text-danger" />
                     </Button>
                   </div>
-                </div>
+                </li>
               )
             })}
-          </div>
+          </ul>
         )}
       </div>
+
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <ShieldCheck className="h-3.5 w-3.5" />
+        Reveals expire automatically after 30 seconds and are written to the audit log.
+      </p>
+
+      <Dialog open={!!revealTarget} onOpenChange={(open) => !open && setRevealTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm it is you</DialogTitle>
+            <DialogDescription>
+              Your account has two-factor authentication enabled. Enter the 6-digit code from your authenticator app
+              to reveal {revealTarget?.key}.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              confirmMfaReveal()
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="totp">Authenticator code</Label>
+              <Input
+                id="totp"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                className="font-mono tracking-[0.4em]"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setRevealTarget(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={revealPending || totpCode.trim().length < 6}>
+                {revealPending ? 'Verifying…' : 'Reveal value'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

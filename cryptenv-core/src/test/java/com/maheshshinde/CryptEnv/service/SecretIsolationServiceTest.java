@@ -34,12 +34,14 @@ import static org.mockito.Mockito.*;
 class SecretIsolationServiceTest {
 
     @Mock private SecretRepository secretRepository;
+    @Mock private com.maheshshinde.CryptEnv.repository.SecretVersionRepository secretVersionRepository;
     @Mock private EnvironmentRepository environmentRepository;
     @Mock private WorkspaceRepository workspaceRepository;
     @Mock private UserRepository userRepository;
     @Mock private EncryptionService encryptionService;
     @Mock private SecurityService securityService;
     @Mock private WorkspaceService workspaceService;
+    @Mock private JitAccessService jitAccessService;
 
     @InjectMocks private SecretService secretService;
 

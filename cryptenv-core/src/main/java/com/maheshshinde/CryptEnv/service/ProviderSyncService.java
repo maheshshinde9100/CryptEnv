@@ -8,6 +8,7 @@ import com.maheshshinde.CryptEnv.model.ProviderIntegration;
 import com.maheshshinde.CryptEnv.model.ProviderSyncJob;
 import com.maheshshinde.CryptEnv.model.ProviderSyncState;
 import com.maheshshinde.CryptEnv.model.User;
+import com.maheshshinde.CryptEnv.provider.ProviderCatalog;
 import com.maheshshinde.CryptEnv.provider.ProviderCredentials;
 import com.maheshshinde.CryptEnv.provider.ProviderException;
 import com.maheshshinde.CryptEnv.provider.ProviderRegistry;
@@ -65,11 +66,15 @@ public class ProviderSyncService {
                 .collect(Collectors.toMap(ProviderIntegration::getProvider, i -> i, (a, b) -> a));
 
         List<Map<String, Object>> providers = new ArrayList<>();
-        for (SecretProvider provider : providerRegistry.all()) {
-            ProviderIntegration integration = connected.get(provider.providerId());
+        for (ProviderCatalog.Entry catalogEntry : ProviderCatalog.all()) {
+            ProviderIntegration integration = connected.get(catalogEntry.id());
             Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("id", provider.providerId());
-            entry.put("name", provider.displayName());
+            entry.put("id", catalogEntry.id());
+            entry.put("name", catalogEntry.name());
+            entry.put("category", catalogEntry.category());
+            entry.put("description", catalogEntry.description());
+            entry.put("docsUrl", catalogEntry.docsUrl());
+            entry.put("native", providerRegistry.supports(catalogEntry.id()));
             entry.put("connected", integration != null);
             entry.put("status", integration != null ? integration.getStatus().name() : "DISCONNECTED");
             providers.add(entry);
@@ -87,9 +92,8 @@ public class ProviderSyncService {
 
     @Transactional
     public Map<String, Object> connect(String providerId, String token, String name, Map<String, String> config) {
-        if (!providerRegistry.supports(providerId)) {
-            throw new ProviderException("Unsupported provider: " + providerId);
-        }
+        ProviderCatalog.Entry catalogEntry = ProviderCatalog.find(providerId)
+                .orElseThrow(() -> new ProviderException("Unsupported provider: " + providerId));
         if (token == null || token.isBlank()) {
             throw new IllegalArgumentException("A provider token is required");
         }
@@ -98,8 +102,11 @@ public class ProviderSyncService {
         Map<String, String> safeConfig = config != null ? config : Map.of();
         ProviderCredentials credentials = new ProviderCredentials(token, safeConfig);
 
-        // Fail fast: validate the credentials before persisting anything.
-        String account = providerRegistry.get(providerId).checkHealth(credentials);
+        // Native adapters validate the credentials before persisting anything. Catalog-only
+        // platforms store the token so workflows can reference it later.
+        String account = providerRegistry.supports(providerId)
+                ? providerRegistry.get(providerId).checkHealth(credentials)
+                : null;
 
         String encryptedCredentials = encryptionService.encryptWithMasterKey(
                 writeJson(Map.of("token", token)));
@@ -112,9 +119,7 @@ public class ProviderSyncService {
                         .provider(providerId)
                         .build());
 
-        integration.setName(name != null && !name.isBlank()
-                ? name
-                : providerRegistry.get(providerId).displayName());
+        integration.setName(name != null && !name.isBlank() ? name : catalogEntry.name());
         integration.setEncryptedCredentials(encryptedCredentials);
         integration.setConfig(configJson);
         integration.setStatus(ProviderIntegration.Status.CONNECTED);
@@ -131,6 +136,16 @@ public class ProviderSyncService {
     public Map<String, Object> testConnection(String providerId) {
         ProviderIntegration integration = ownedIntegration(providerId);
         Map<String, Object> view = toIntegrationView(integration);
+        if (!providerRegistry.supports(providerId)) {
+            integration.setStatus(ProviderIntegration.Status.CONNECTED);
+            integration.setLastError(null);
+            integration.setLastCheckedAt(LocalDateTime.now());
+            integrationRepository.save(integration);
+            view.put("healthy", true);
+            view.put("status", integration.getStatus().name());
+            view.put("note", "Credentials stored; live checks are available for native providers only");
+            return view;
+        }
         try {
             String account = providerRegistry.get(providerId).checkHealth(credsFor(integration));
             integration.setStatus(ProviderIntegration.Status.CONNECTED);
@@ -157,6 +172,7 @@ public class ProviderSyncService {
 
     @Transactional(readOnly = true)
     public List<ProviderTarget> listTargets(String providerId) {
+        requireNative(providerId);
         ProviderIntegration integration = ownedIntegration(providerId);
         return providerRegistry.get(providerId).listTargets(credsFor(integration));
     }
@@ -166,6 +182,7 @@ public class ProviderSyncService {
     @Transactional
     public Map<String, Object> enqueueSync(String providerId, Long environmentId, String target,
                                            List<String> secretKeys) {
+        requireNative(providerId);
         ProviderIntegration integration = ownedIntegration(providerId);
         if (target == null || target.isBlank()) {
             throw new IllegalArgumentException("A sync target is required");
@@ -207,6 +224,7 @@ public class ProviderSyncService {
 
     @Transactional
     public Map<String, Object> enqueueDelete(String providerId, String target, String secretKey) {
+        requireNative(providerId);
         ProviderIntegration integration = ownedIntegration(providerId);
         if (target == null || target.isBlank() || secretKey == null || secretKey.isBlank()) {
             throw new IllegalArgumentException("Both target and secretKey are required");
@@ -402,6 +420,13 @@ public class ProviderSyncService {
         state.setLastSyncedAt(LocalDateTime.now());
         state.setLastStatus("SUCCESS");
         syncStateRepository.save(state);
+    }
+
+    private void requireNative(String providerId) {
+        if (!providerRegistry.supports(providerId)) {
+            String name = ProviderCatalog.find(providerId).map(ProviderCatalog.Entry::name).orElse(providerId);
+            throw new ProviderException(name + " does not support secret push yet; connect it for workflow use only");
+        }
     }
 
     private ProviderIntegration ownedIntegration(String providerId) {

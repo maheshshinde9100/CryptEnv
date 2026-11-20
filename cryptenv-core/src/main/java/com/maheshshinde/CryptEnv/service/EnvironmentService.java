@@ -112,6 +112,33 @@ public class EnvironmentService {
     }
 
     @Transactional
+    public EnvironmentResponseDto updateEnvironment(Long id, Boolean isActive, Boolean isProtected, String label) {
+        User currentUser = securityService.getCurrentUser();
+        Environment environment = environmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + id));
+        requireAdmin(environment.getWorkspace(), currentUser);
+
+        if (isActive != null) {
+            environment.setIsActive(isActive);
+        }
+        if (isProtected != null) {
+            environment.setIsProtected(isProtected);
+        }
+        if (label != null) {
+            String trimmed = label.trim();
+            if (trimmed.isEmpty()) {
+                environment.setLabel(null);
+            } else if (environment.getName() != Environment.EnvironmentType.CUSTOM
+                    && trimmed.equals(environment.getName().name())) {
+                environment.setLabel(null);
+            } else {
+                environment.setLabel(trimmed);
+            }
+        }
+        return mapToResponseDto(environmentRepository.save(environment));
+    }
+
+    @Transactional
     public EnvironmentResponseDto toggleEnvironmentStatus(Long id) {
         User currentUser = securityService.getCurrentUser();
         Environment environment = environmentRepository.findById(id)

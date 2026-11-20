@@ -4,11 +4,13 @@ import com.maheshshinde.CryptEnv.dto.SecretCreateDto;
 import com.maheshshinde.CryptEnv.dto.SecretResponseDto;
 import com.maheshshinde.CryptEnv.dto.SecretUpdateDto;
 import com.maheshshinde.CryptEnv.model.Permission;
+import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
 import com.maheshshinde.CryptEnv.service.MfaService;
 import com.maheshshinde.CryptEnv.service.SecretImportExportService;
 import com.maheshshinde.CryptEnv.service.SecretService;
 import com.maheshshinde.CryptEnv.service.SecretValueGenerator;
+import com.maheshshinde.CryptEnv.service.SecretVersionService;
 import com.maheshshinde.CryptEnv.service.SecurityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,6 +32,7 @@ import java.util.Map;
 public class SecretController {
 
     private final SecretService secretService;
+    private final SecretVersionService secretVersionService;
     private final SecretImportExportService secretImportExportService;
     private final AuditLogService auditLogService;
     private final SecurityService securityService;
@@ -236,8 +239,11 @@ public class SecretController {
         String stepUpToken = body.get("stepUpToken");
         String totpCode = body.get("totpCode");
 
-        // Verify step-up MFA
-        mfaService.verifyStepUpToken(stepUpToken, totpCode);
+        // Step-up MFA is enforced only for accounts that have MFA enabled.
+        User currentUser = securityService.getCurrentUser();
+        if (Boolean.TRUE.equals(currentUser.getMfaEnabled())) {
+            mfaService.verifyStepUpToken(stepUpToken, totpCode);
+        }
 
         // Get decrypted value
         String decryptedValue = secretService.getDecryptedSecretValue(environmentId, key);
@@ -263,8 +269,7 @@ public class SecretController {
             @RequestParam Integer toVersion,
             HttpServletRequest request) {
         securityService.checkPermission(Permission.SECRET_READ);
-        // TODO: Implement version diff
-        Map<String, Object> diff = Map.of("message", "Version diff not yet implemented");
+        Map<String, Object> diff = secretVersionService.diffVersions(environmentId, key, fromVersion, toVersion);
         auditLogService.logEvent(
                 securityService.getCurrentUser(),
                 "SECRET_VERSION_DIFF",

@@ -4,10 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { secretsAPI, environmentAPI, workspaceAPI } from '../lib/api'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
+import { Input, Textarea } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react'
+
+const SECRET_TYPES = ['TEXT', 'MULTILINE', 'JSON', 'CERTIFICATE', 'SSH_KEY', 'BINARY']
 
 export function SecretEditor() {
   const navigate = useNavigate()
@@ -20,11 +22,15 @@ export function SecretEditor() {
   const [secretKey, setSecretKey] = useState('')
   const [secretValue, setSecretValue] = useState('')
   const [showValue, setShowValue] = useState(false)
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    activeWorkspace?.id ? String(activeWorkspace.id) : ''
+  )
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState(
     location.state?.environmentId ? String(location.state.environmentId) : ''
   )
   const [description, setDescription] = useState('')
+  const [secretType, setSecretType] = useState('TEXT')
+  const [tags, setTags] = useState('')
 
   const { data: workspaces } = useQuery({
     queryKey: ['workspaces'],
@@ -32,20 +38,23 @@ export function SecretEditor() {
   })
 
   useEffect(() => {
-    if (!selectedWorkspaceId && (activeWorkspace?.id || workspaces?.[0]?.id)) {
+    if (!selectedWorkspaceId && workspaces?.[0]?.id) {
       setSelectedWorkspaceId(String(activeWorkspace?.id || workspaces[0].id))
     }
   }, [activeWorkspace, workspaces, selectedWorkspaceId])
 
-  const { data: environments } = useQuery({
+  const { data: environments = [] } = useQuery({
     queryKey: ['environments', selectedWorkspaceId],
     queryFn: () => environmentAPI.list(Number(selectedWorkspaceId)).then((res) => res.data),
     enabled: !!selectedWorkspaceId,
   })
 
   const { data: existingSecret } = useQuery({
-    queryKey: ['secret', key],
-    queryFn: () => secretsAPI.get(key).then((res) => res.data),
+    queryKey: ['secret', key, location.state?.environmentId],
+    queryFn: () =>
+      location.state?.environmentId
+        ? secretsAPI.getByEnvironment(location.state.environmentId, key).then((res) => res.data)
+        : secretsAPI.get(key).then((res) => res.data),
     enabled: isEdit,
   })
 
@@ -54,9 +63,9 @@ export function SecretEditor() {
       setSecretKey(existingSecret.key || '')
       setSecretValue(existingSecret.value || '')
       setDescription(existingSecret.description || '')
-      if (existingSecret.environmentId) {
-        setSelectedEnvironmentId(String(existingSecret.environmentId))
-      }
+      setSecretType(existingSecret.secretType || 'TEXT')
+      setTags(existingSecret.tags || '')
+      if (existingSecret.environmentId) setSelectedEnvironmentId(String(existingSecret.environmentId))
     }
   }, [existingSecret])
 
@@ -64,7 +73,7 @@ export function SecretEditor() {
     mutationFn: (data) => secretsAPI.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['secrets'] })
-      toast.success('Secret created (encrypted at rest)')
+      toast.success('Secret created and encrypted')
       navigate('/secrets')
     },
     onError: (error) => toast.error(error.response?.data?.message || 'Failed to create secret'),
@@ -96,27 +105,36 @@ export function SecretEditor() {
       key: secretKey,
       value: secretValue,
       environmentId: Number(selectedEnvironmentId),
-      description,
+      description: description || undefined,
+      tags: tags || undefined,
+      secretType,
       encrypted: true,
     })
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/secrets')}>
+    <div className="max-w-2xl space-y-8">
+      <header className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/secrets')} aria-label="Back to secrets">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{isEdit ? 'Edit secret' : 'Add secret'}</h1>
-          <p className="text-muted-foreground">Server encrypts with your workspace key before storage</p>
+          <p className="eyebrow">{isEdit ? 'Edit secret' : 'New secret'}</p>
+          <h1 className="mt-2 text-xl">{isEdit ? key : 'Add a secret'}</h1>
         </div>
-      </div>
+      </header>
 
-      <div className="glass-panel rounded-2xl p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="rounded-lg border border-border">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-4">
+          <Lock className="h-4 w-4 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Values are encrypted server-side with AES-256-GCM before storage.
+          </p>
+        </div>
+
+        <div className="space-y-5 p-5">
           {!isEdit && (
-            <>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Workspace</Label>
                 <Select
@@ -130,7 +148,7 @@ export function SecretEditor() {
                     <SelectValue placeholder="Select workspace" />
                   </SelectTrigger>
                   <SelectContent>
-                    {workspaces?.map((ws) => (
+                    {(workspaces || []).map((ws) => (
                       <SelectItem key={ws.id} value={String(ws.id)}>
                         {ws.name}
                       </SelectItem>
@@ -149,64 +167,111 @@ export function SecretEditor() {
                     <SelectValue placeholder="Select environment" />
                   </SelectTrigger>
                   <SelectContent>
-                    {environments?.map((env) => (
+                    {environments.map((env) => (
                       <SelectItem key={env.id} value={String(env.id)}>
-                        {env.name}
+                        {env.displayName || env.label || env.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </>
+            </div>
           )}
+
           <div className="space-y-2">
-            <Label>Key</Label>
+            <Label htmlFor="secret-key">Key</Label>
             <Input
+              id="secret-key"
               value={secretKey}
-              onChange={(e) => setSecretKey(e.target.value)}
+              onChange={(e) => setSecretKey(e.target.value.toUpperCase().replace(/\s/g, '_'))}
               disabled={isEdit}
               required
               className="font-mono"
               placeholder="DATABASE_URL"
             />
           </div>
+
           <div className="space-y-2">
-            <Label>Value</Label>
+            <Label htmlFor="secret-value">Value</Label>
             <div className="relative">
-              <Input
-                type={showValue ? 'text' : 'password'}
-                value={secretValue}
-                onChange={(e) => setSecretValue(e.target.value)}
-                required
-                className="pr-10 font-mono"
-              />
+              {secretType === 'MULTILINE' || secretType === 'CERTIFICATE' || secretType === 'SSH_KEY' ? (
+                <Textarea
+                  id="secret-value"
+                  value={secretValue}
+                  onChange={(e) => setSecretValue(e.target.value)}
+                  required
+                  rows={8}
+                  className="pr-10 font-mono"
+                />
+              ) : (
+                <Input
+                  id="secret-value"
+                  type={showValue ? 'text' : 'password'}
+                  value={secretValue}
+                  onChange={(e) => setSecretValue(e.target.value)}
+                  required
+                  className="pr-12 font-mono"
+                />
+              )}
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground"
+                className="absolute right-2 top-3 p-1 text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => setShowValue((v) => !v)}
+                aria-label={showValue ? 'Hide value' : 'Show value'}
               >
                 {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <select
+                value={secretType}
+                onChange={(e) => setSecretType(e.target.value)}
+                disabled={isEdit}
+                className="h-11 w-full rounded-md border border-border bg-surface px-3 text-sm outline-none focus:border-tertiary disabled:opacity-60"
+              >
+                {SECRET_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="secret-tags">Tags</Label>
+              <Input
+                id="secret-tags"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                disabled={isEdit}
+                placeholder="database, payments"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label>Description</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Label htmlFor="secret-description">Description</Label>
+            <Input
+              id="secret-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What is this secret used for?"
+            />
           </div>
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="submit"
-              className="brand-gradient border-0 text-white"
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {createMutation.isPending || updateMutation.isPending ? 'Saving…' : isEdit ? 'Update' : 'Create'}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => navigate('/secrets')}>
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </div>
+        </div>
+
+        <div className="flex gap-2 border-t border-border px-5 py-4">
+          <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+            {createMutation.isPending || updateMutation.isPending ? 'Saving…' : isEdit ? 'Update secret' : 'Create secret'}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate('/secrets')}>
+            Cancel
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }

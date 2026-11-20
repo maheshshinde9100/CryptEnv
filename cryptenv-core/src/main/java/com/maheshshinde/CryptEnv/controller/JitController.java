@@ -28,9 +28,16 @@ public class JitController {
     public ResponseEntity<Map<String, Object>> request(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
+        if (body.get("workspaceId") == null || body.get("environmentId") == null) {
+            throw new IllegalArgumentException("workspaceId and environmentId are required");
+        }
         Long workspaceId = Long.valueOf(body.get("workspaceId").toString());
         Long environmentId = Long.valueOf(body.get("environmentId").toString());
-        String justification = String.valueOf(body.get("justification"));
+        Object justificationValue = body.get("justification");
+        String justification = justificationValue == null ? "" : justificationValue.toString().trim();
+        if (justification.isBlank()) {
+            throw new IllegalArgumentException("A justification is required for JIT access");
+        }
         int hours = body.get("durationHours") != null
                 ? Integer.parseInt(body.get("durationHours").toString()) : 2;
         Map<String, Object> result = jitAccessService.requestAccess(workspaceId, environmentId, justification, hours);

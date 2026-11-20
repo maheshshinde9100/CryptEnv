@@ -6,11 +6,14 @@ import com.maheshshinde.CryptEnv.dto.SecretUpdateDto;
 import com.maheshshinde.CryptEnv.exception.ResourceAlreadyExistsException;
 import com.maheshshinde.CryptEnv.exception.ResourceNotFoundException;
 import com.maheshshinde.CryptEnv.model.Environment;
+import com.maheshshinde.CryptEnv.model.Role;
 import com.maheshshinde.CryptEnv.model.Secret;
+import com.maheshshinde.CryptEnv.model.SecretVersion;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.model.Workspace;
 import com.maheshshinde.CryptEnv.repository.EnvironmentRepository;
 import com.maheshshinde.CryptEnv.repository.SecretRepository;
+import com.maheshshinde.CryptEnv.repository.SecretVersionRepository;
 import com.maheshshinde.CryptEnv.repository.WorkspaceRepository;
 import com.maheshshinde.CryptEnv.security.EncryptionException;
 import com.maheshshinde.CryptEnv.security.EncryptionService;
@@ -28,11 +31,13 @@ import java.util.stream.Collectors;
 public class SecretService {
 
     private final SecretRepository secretRepository;
+    private final SecretVersionRepository secretVersionRepository;
     private final EnvironmentRepository environmentRepository;
     private final WorkspaceRepository workspaceRepository;
     private final EncryptionService encryptionService;
     private final SecurityService securityService;
     private final WorkspaceService workspaceService;
+    private final JitAccessService jitAccessService;
 
     private void validateEnvironmentOwnership(Environment environment, User user) {
         Long ownerId = environment.getWorkspace().getOwner().getId();
@@ -44,8 +49,33 @@ public class SecretService {
         }
     }
 
+    /**
+     * Write access: workspace member with a writable role; protected environments additionally
+     * require OWNER/ADMIN or an approved JIT grant. System jobs (no security context) bypass.
+     */
+    private void requireWriteAccess(Environment environment) {
+        User user = securityService.getCurrentUser();
+        if (user == null) {
+            return;
+        }
+        validateEnvironmentOwnership(environment, user);
+        Role role = workspaceService.getEffectiveRole(environment.getWorkspace(), user);
+        if (role == Role.VIEWER || role == Role.AUDITOR) {
+            throw new RuntimeException("Your workspace role is read-only and cannot modify secrets");
+        }
+        if (Boolean.TRUE.equals(environment.getIsProtected())
+                && role != Role.OWNER && role != Role.ADMIN
+                && !jitAccessService.hasActiveGrant(environment.getId(), user.getId())) {
+            throw new RuntimeException(
+                    "Environment is protected. Request JIT access or ask a workspace owner/admin to change it.");
+        }
+    }
+
     private String getWorkspaceEncryptionKeyForEnv(Environment environment) {
         Long workspaceId = environment.getWorkspace().getId();
+        if (securityService.getCurrentUser() == null) {
+            return workspaceService.getDecryptedWorkspaceKeyForSystem(workspaceId);
+        }
         return workspaceService.getDecryptedWorkspaceKey(workspaceId);
     }
 
@@ -95,6 +125,7 @@ public class SecretService {
                     .orElseThrow(() -> new ResourceNotFoundException("Environment not found with id: " + createDto.getEnvironmentId()));
             validateEnvironmentOwnership(environment, currentUser);
         }
+        requireWriteAccess(environment);
 
         if (secretRepository.existsByEnvironmentIdAndKey(environment.getId(), createDto.getKey())) {
             throw new ResourceAlreadyExistsException("Secret with key '" + createDto.getKey() + "' already exists in this environment");
@@ -138,6 +169,7 @@ public class SecretService {
                 .build();
 
         Secret savedSecret = secretRepository.save(secret);
+        recordVersion(savedSecret, version, currentUser.getEmail(), "Initial version");
         return mapToResponseDto(savedSecret, createDto.getValue());
     }
 
@@ -197,6 +229,7 @@ public class SecretService {
         Secret existingSecret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
         validateEnvironmentOwnership(existingSecret.getEnvironment(), currentUser);
+        requireWriteAccess(existingSecret.getEnvironment());
 
         String workspaceKey;
         try {
@@ -230,6 +263,7 @@ public class SecretService {
         existingSecret.setContentFingerprint(EncryptionService.fingerprint(newValue));
 
         Secret savedSecret = secretRepository.save(existingSecret);
+        recordVersion(savedSecret, nextVersion, currentUser.getEmail(), "Secret updated");
         return mapToResponseDto(savedSecret, newValue);
     }
 
@@ -239,6 +273,7 @@ public class SecretService {
         Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
         validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+        requireWriteAccess(secret.getEnvironment());
         secretRepository.delete(secret);
     }
 
@@ -251,20 +286,30 @@ public class SecretService {
         }
         Secret secret = secrets.get(0);
         validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+        requireWriteAccess(secret.getEnvironment());
         secretRepository.delete(secret);
     }
 
     private Secret getSecretForLifecycle(String key, String email) {
         User currentUser = securityService.getCurrentUser();
-        if (!currentUser.getEmail().equals(email)) {
-             throw new RuntimeException("Unauthorized");
+        Secret secret;
+        if (currentUser == null) {
+            if (!"system".equals(email)) {
+                throw new RuntimeException("Unauthorized");
+            }
+            secret = secretRepository.findFirstByKeyOrderByIdAsc(key)
+                    .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
+        } else {
+            if (!currentUser.getEmail().equals(email)) {
+                throw new RuntimeException("Unauthorized");
+            }
+            List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerOrMemberId(key, currentUser.getId());
+            if (secrets.isEmpty()) {
+                throw new ResourceNotFoundException("Secret not found with key: " + key);
+            }
+            secret = secrets.get(0);
         }
-        List<Secret> secrets = secretRepository.findByKeyAndEnvironmentWorkspaceOwnerOrMemberId(key, currentUser.getId());
-        if (secrets.isEmpty()) {
-            throw new ResourceNotFoundException("Secret not found with key: " + key);
-        }
-        Secret secret = secrets.get(0);
-        validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+        requireWriteAccess(secret.getEnvironment());
         return secret;
     }
 
@@ -426,7 +471,12 @@ public class SecretService {
     public SecretResponseDto rotateSecret(Long environmentId, String key, String newValue) {
         Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, key)
                 .orElseThrow(() -> new ResourceNotFoundException("Secret not found with key: " + key));
-        validateEnvironmentOwnership(secret.getEnvironment(), securityService.getCurrentUser());
+        User currentUser = securityService.getCurrentUser();
+        if (currentUser != null) {
+            validateEnvironmentOwnership(secret.getEnvironment(), currentUser);
+        }
+        requireWriteAccess(secret.getEnvironment());
+        String actorEmail = currentUser != null ? currentUser.getEmail() : "system";
 
         updateSecret(environmentId, key, SecretUpdateDto.builder()
                 .value(newValue)
@@ -438,9 +488,28 @@ public class SecretService {
         if (updated.getRotationIntervalDays() != null && updated.getRotationIntervalDays() > 0) {
             updated.setNextRotationAt(java.time.LocalDateTime.now().plusDays(updated.getRotationIntervalDays()));
         }
-        updated.setUpdatedByEmail(securityService.getCurrentUser().getEmail());
+        updated.setUpdatedByEmail(actorEmail);
         Secret saved = secretRepository.save(updated);
         return mapToResponseDto(saved, newValue);
+    }
+
+    private void recordVersion(Secret secret, int versionNumber, String actorEmail, String reason) {
+        if (secret.getId() == null || secret.getValue() == null) {
+            return;
+        }
+        secretVersionRepository.deactivateAllForSecret(secret.getId());
+        secretVersionRepository.save(SecretVersion.builder()
+                .secretKey(secret.getKey())
+                .secret(secret)
+                .environment(secret.getEnvironment())
+                .workspace(secret.getEnvironment().getWorkspace())
+                .versionNumber(versionNumber)
+                .encryptedValue(secret.getValue())
+                .isActive(true)
+                .rotationReason(reason)
+                .rotatedByEmail(actorEmail != null ? actorEmail : "system")
+                .contentFingerprint(secret.getContentFingerprint())
+                .build());
     }
 
     /**

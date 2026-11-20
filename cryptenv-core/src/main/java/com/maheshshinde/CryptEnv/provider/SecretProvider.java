@@ -10,7 +10,7 @@ import java.util.List;
  */
 public interface SecretProvider {
 
-    /** Stable identifier, e.g. {@code github}, {@code vercel}, {@code cloudflare}, {@code kubernetes}. */
+    /** Stable identifier, e.g. {@code github}, {@code vercel}, {@code cloudflare}, {@code gitlab}. */
     String providerId();
 
     /** Human-readable name shown in the dashboard. */

@@ -14,6 +14,8 @@ public interface SecretRepository extends JpaRepository<Secret, Long> {
 
     Optional<Secret> findByKey(String key);
 
+    Optional<Secret> findFirstByKeyOrderByIdAsc(String key);
+
     Optional<Secret> findByEnvironmentIdAndKey(Long environmentId, String key);
 
     List<Secret> findByEnvironmentId(Long environmentId);

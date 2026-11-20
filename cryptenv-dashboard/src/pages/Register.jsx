@@ -53,18 +53,21 @@ export function Register() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 brand-gradient opacity-[0.1]" />
-      <div className="relative w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center text-center gap-3">
-          <Link to="/">
-            <BrandLogo size="lg" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-16">
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Link to="/" className="inline-flex items-center gap-2.5">
+            <BrandLogo size="md" />
+            <span className="text-lg font-normal tracking-[-0.02em]">CryptEnv</span>
           </Link>
-          <h1 className="text-3xl font-bold brand-text">Join CryptEnv</h1>
-          <p className="text-sm text-muted-foreground">Create a vault for encrypted workspace secrets</p>
+          <p className="text-sm text-muted-foreground">Create a vault for encrypted workspace secrets.</p>
         </div>
 
-        <div className="glass-panel surface-glow rounded-2xl p-6 sm:p-8">
+        <div className="mt-10 rounded-lg border border-border p-6 sm:p-7">
+          <div className="mb-6">
+            <h1 className="text-2xl font-light tracking-[-0.02em]">Create your account</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">Free to start. No credit card required.</p>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -99,17 +102,22 @@ export function Register() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full brand-gradient border-0 text-white" disabled={registerMutation.isPending}>
+            <Button type="submit" className="h-[53px] w-full" disabled={registerMutation.isPending}>
               {registerMutation.isPending ? 'Creating…' : 'Create account'}
             </Button>
           </form>
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary font-semibold hover:underline">
+            <Link to="/login" className="text-foreground hover:underline">
               Sign in
             </Link>
           </p>
         </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          <Link to="/" className="hover:text-foreground">
+            Back to home
+          </Link>
+        </p>
       </div>
     </div>
   )

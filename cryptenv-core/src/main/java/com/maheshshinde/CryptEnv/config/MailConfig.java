@@ -35,10 +35,12 @@ public class MailConfig {
         }
 
         Properties props = sender.getJavaMailProperties();
+        boolean hasCredentials = username != null && !username.isBlank();
         props.put("mail.transport.protocol", "smtp");
-        props.put("mail.smtp.auth", env.getProperty("spring.mail.properties.mail.smtp.auth", "true"));
+        props.put("mail.smtp.auth",
+                env.getProperty("spring.mail.properties.mail.smtp.auth", String.valueOf(hasCredentials)));
         props.put("mail.smtp.starttls.enable",
-                env.getProperty("spring.mail.properties.mail.smtp.starttls.enable", "true"));
+                env.getProperty("spring.mail.properties.mail.smtp.starttls.enable", String.valueOf(hasCredentials)));
         props.put("mail.smtp.connectiontimeout", "8000");
         props.put("mail.smtp.timeout", "8000");
         props.put("mail.smtp.writetimeout", "8000");

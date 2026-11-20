@@ -58,18 +58,9 @@ public class SecretRotationScheduler {
 
         String newValue = secretValueGenerator.generate(secret);
 
-        secretVersionService.createVersion(
-                secret.getKey(),
-                newValue,
-                "system",
-                "Scheduled rotation (" + secretValueGenerator.resolveType(secret) + ")"
-        );
+        secretService.rotateSecret(secret.getEnvironment().getId(), secret.getKey(), newValue);
 
-        secret.setLastRotatedAt(LocalDateTime.now());
-        if (secret.getRotationIntervalDays() != null && secret.getRotationIntervalDays() > 0) {
-            secret.setNextRotationAt(LocalDateTime.now().plusDays(secret.getRotationIntervalDays()));
-        }
-        secretService.setExpiration(secret.getKey(), secret.getExpiresAt(), "system");
+        log.info("Rotated secret {} with generated {} value", secret.getKey(), secretValueGenerator.resolveType(secret));
     }
 
     @Scheduled(cron = "${secret.expiration.check.cron:0 0 * * * ?}")

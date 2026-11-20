@@ -29,15 +29,20 @@ export function VerifyEmail() {
   })
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 brand-gradient opacity-[0.1]" />
-      <div className="relative w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center text-center gap-3">
-          <Link to="/"><BrandLogo size="lg" /></Link>
-          <h1 className="text-3xl font-bold brand-text">Verify your email</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-16">
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Link to="/" className="inline-flex items-center gap-2.5">
+            <BrandLogo size="md" />
+            <span className="text-lg font-normal tracking-[-0.02em]">CryptEnv</span>
+          </Link>
           <p className="text-sm text-muted-foreground">Enter the six-digit code we sent to your inbox.</p>
         </div>
-        <div className="glass-panel surface-glow rounded-2xl p-6 sm:p-8">
+        <div className="mt-10 rounded-lg border border-border p-6 sm:p-7">
+          <div className="mb-6">
+            <h1 className="text-2xl font-light tracking-[-0.02em]">Verify your email</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">Codes expire shortly after they are sent.</p>
+          </div>
           <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); verify.mutate() }}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -45,19 +50,24 @@ export function VerifyEmail() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="code">Verification code</Label>
-              <Input id="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} required />
+              <Input id="code" className="font-mono tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} required />
             </div>
-            <Button className="w-full brand-gradient border-0 text-white" disabled={verify.isPending}>
+            <Button className="h-[53px] w-full" disabled={verify.isPending}>
               {verify.isPending ? 'Verifying…' : 'Verify email'}
             </Button>
           </form>
           <div className="mt-5 text-center text-sm text-muted-foreground">
             Didn’t receive it?{' '}
-            <button type="button" className="text-primary font-semibold hover:underline" disabled={!email || resend.isPending} onClick={() => resend.mutate()}>
+            <button type="button" className="text-foreground hover:underline" disabled={!email || resend.isPending} onClick={() => resend.mutate()}>
               {resend.isPending ? 'Sending…' : 'Resend code'}
             </button>
           </div>
         </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          <Link to="/login" className="hover:text-foreground">
+            Back to sign in
+          </Link>
+        </p>
       </div>
     </div>
   )

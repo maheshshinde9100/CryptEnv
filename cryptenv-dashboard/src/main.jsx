@@ -5,9 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import App from './App.jsx'
 import './index.css'
-import { applyTheme, isDarkTheme } from './lib/theme'
 
-applyTheme(isDarkTheme())
+document.documentElement.classList.add('dark')
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,7 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <App />
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-right" theme="dark" />
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

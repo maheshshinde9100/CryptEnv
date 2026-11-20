@@ -17,7 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -193,13 +196,14 @@ public class SecretVersionService {
     }
 
     /**
-     * Decrypt a secret version value, handling both envelope and legacy encryption.
+     * Decrypt a secret version value, handling envelope encryption, AAD-bound ciphertext,
+     * and legacy direct encryption.
      */
     @Transactional(readOnly = true)
     public String decryptVersionValue(SecretVersion version, String workspaceKey) {
         try {
             if (version.getWrappedDek() != null && !version.getWrappedDek().isBlank()) {
-                // Envelope encryption mode
+                // Envelope encryption mode (no AAD binding)
                 return envelopeEncryptionService.decryptWithEnvelope(
                         version.getEncryptedValue(),
                         workspaceKey,
@@ -208,8 +212,19 @@ public class SecretVersionService {
                         version.getDekIv(),
                         version.getDekTag()
                 );
-            } else {
-                // Legacy direct encryption mode
+            }
+            String aad = null;
+            if (version.getEnvironment() != null && version.getSecretKey() != null) {
+                aad = EncryptionService.aadFor(
+                        version.getEnvironment().getWorkspace().getId(),
+                        version.getEnvironment().getId(),
+                        version.getSecretKey(),
+                        version.getVersionNumber());
+            }
+            try {
+                return encryptionService.decryptWithKey(version.getEncryptedValue(), workspaceKey, aad);
+            } catch (EncryptionException noAadMatch) {
+                // Legacy ciphertext written without AAD
                 return encryptionService.decryptWithKey(version.getEncryptedValue(), workspaceKey);
             }
         } catch (EncryptionException e) {
@@ -217,4 +232,68 @@ public class SecretVersionService {
             throw new RuntimeException("Failed to decrypt secret value", e);
         }
     }
+
+    /**
+     * Compare two versions without returning either plaintext value.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> diffVersions(Long environmentId, String secretKey, Integer fromVersion, Integer toVersion) {
+        User currentUser = securityService.getCurrentUser();
+        Secret secret = secretRepository.findByEnvironmentIdAndKey(environmentId, secretKey)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Secret not found with key: " + secretKey + " in environment: " + environmentId));
+        validateSecretAccess(secret, currentUser);
+
+        SecretVersion from = secretVersionRepository.findBySecretIdAndVersionNumber(secret.getId(), fromVersion)
+                .orElseThrow(() -> new ResourceNotFoundException("Version " + fromVersion + " not found"));
+        SecretVersion to = secretVersionRepository.findBySecretIdAndVersionNumber(secret.getId(), toVersion)
+                .orElseThrow(() -> new ResourceNotFoundException("Version " + toVersion + " not found"));
+
+        String workspaceKey = workspaceService.getDecryptedWorkspaceKey(secret.getEnvironment().getWorkspace().getId());
+        String fromValue = decryptVersionValue(from, workspaceKey);
+        String toValue = decryptVersionValue(to, workspaceKey);
+
+        int fromLines = lineCount(fromValue);
+        int toLines = lineCount(toValue);
+        int changedLines = changedLines(fromValue, toValue);
+
+        Map<String, Object> diff = new LinkedHashMap<>();
+        diff.put("secretKey", secretKey);
+        diff.put("environmentId", environmentId);
+        diff.put("fromVersion", fromVersion);
+        diff.put("toVersion", toVersion);
+        diff.put("changed", !Objects.equals(from.getContentFingerprint(), to.getContentFingerprint()));
+        diff.put("fromFingerprint", from.getContentFingerprint());
+        diff.put("toFingerprint", to.getContentFingerprint());
+        diff.put("fromLength", fromValue.length());
+        diff.put("toLength", toValue.length());
+        diff.put("fromLines", fromLines);
+        diff.put("toLines", toLines);
+        diff.put("changedLines", changedLines);
+        diff.put("fromCreatedAt", from.getCreatedAt());
+        diff.put("toCreatedAt", to.getCreatedAt());
+        diff.put("fromRotatedBy", from.getRotatedByEmail());
+        diff.put("toRotatedBy", to.getRotatedByEmail());
+        return diff;
+    }
+
+    private int lineCount(String value) {
+        return value.isEmpty() ? 0 : value.split("\n", -1).length;
+    }
+
+    private int changedLines(String from, String to) {
+        String[] a = from.split("\n", -1);
+        String[] b = to.split("\n", -1);
+        int max = Math.max(a.length, b.length);
+        int changed = 0;
+        for (int i = 0; i < max; i++) {
+            String left = i < a.length ? a[i] : null;
+            String right = i < b.length ? b[i] : null;
+            if (!Objects.equals(left, right)) {
+                changed++;
+            }
+        }
+        return changed;
+    }
+
 }

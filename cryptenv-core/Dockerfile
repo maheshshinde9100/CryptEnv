@@ -37,7 +37,12 @@ RUN chmod +x mvnw \
  && ./mvnw -B -q org.apache.maven.plugins:maven-dependency-plugin:3.6.1:go-offline -DskipTests
 
 COPY src ./src
-RUN ./mvnw -B -q clean package -DskipTests \
+# The real application.properties is gitignored. Fall back to the committed
+# template so a fresh clone still produces a bootable image.
+RUN if [ ! -f src/main/resources/application.properties ]; then \
+      cp src/main/resources/application.properties.example src/main/resources/application.properties; \
+    fi \
+ && ./mvnw -B -q clean package -DskipTests \
  && JAR="$(ls target/*.jar | grep -v '\.original$' | head -n 1)" \
  && java -Djarmode=layertools -jar "$JAR" extract --destination /build/layers \
  && echo "Extracted Spring Boot layers"

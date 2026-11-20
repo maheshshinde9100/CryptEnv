@@ -4,6 +4,7 @@ import com.maheshshinde.CryptEnv.model.SecretVersion;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -20,6 +21,12 @@ public interface SecretVersionRepository extends JpaRepository<SecretVersion, Lo
     Optional<SecretVersion> findBySecretKeyAndVersionNumber(String secretKey, Integer versionNumber);
 
     Optional<SecretVersion> findBySecretKeyAndIsActiveTrue(String secretKey);
+
+    Optional<SecretVersion> findBySecretIdAndVersionNumber(Long secretId, Integer versionNumber);
+
+    @Modifying
+    @Query("UPDATE SecretVersion v SET v.isActive = false WHERE v.secret.id = :secretId AND v.isActive = true")
+    void deactivateAllForSecret(@Param("secretId") Long secretId);
 
     Page<SecretVersion> findBySecretKeyOrderByCreatedAtDesc(String secretKey, Pageable pageable);
 

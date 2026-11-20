@@ -1,5 +1,6 @@
 package com.maheshshinde.CryptEnv.service;
 
+import com.maheshshinde.CryptEnv.dto.AuditLogDto;
 import com.maheshshinde.CryptEnv.model.AuditLog;
 import com.maheshshinde.CryptEnv.model.User;
 import com.maheshshinde.CryptEnv.repository.AuditLogRepository;
@@ -7,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -47,7 +53,9 @@ public class AuditLogService {
                 .filter(h -> h != null && !h.isBlank())
                 .orElse(GENESIS_HASH);
 
+        LocalDateTime now = LocalDateTime.now();
         AuditLog auditLog = AuditLog.builder()
+                .timestamp(now)
                 .user(user)
                 .action(action)
                 .resourceType(resourceType)
@@ -60,9 +68,8 @@ public class AuditLogService {
                 .previousHash(previousHash)
                 .build();
 
-        AuditLog saved = auditLogRepository.saveAndFlush(auditLog);
-        saved.setEntryHash(computeEntryHash(saved, previousHash));
-        AuditLog persisted = auditLogRepository.save(saved);
+        auditLog.setEntryHash(computeEntryHash(auditLog, previousHash));
+        AuditLog persisted = auditLogRepository.save(auditLog);
 
         publishDomainEvent(user, action, resourceType, resourceId, success, details, workspaceId);
         return persisted;
@@ -95,26 +102,72 @@ public class AuditLogService {
         return logEvent(user, action, resourceType, resourceId, success, request, null);
     }
 
-    public Page<AuditLog> getUserAuditLogs(Long userId, Pageable pageable) {
-        return auditLogRepository.findByUserIdOrderByTimestampDesc(userId, pageable);
+    public Page<AuditLogDto> getUserAuditLogs(Long userId, Pageable pageable) {
+        return toDtoPage(auditLogRepository.findByUserIdOrderByTimestampDesc(userId, pageable));
     }
 
-    public Page<AuditLog> getAuditLogsByAction(String action, Pageable pageable) {
-        return auditLogRepository.findByActionOrderByTimestampDesc(action, pageable);
+    public Page<AuditLogDto> getAuditLogsByAction(String action, Pageable pageable) {
+        return toDtoPage(auditLogRepository.findByActionOrderByTimestampDesc(action, pageable));
     }
 
-    public Page<AuditLog> getResourceAuditLogs(String resourceType, String resourceId, Pageable pageable) {
-        return auditLogRepository.findByResourceTypeAndResourceIdOrderByTimestampDesc(resourceType, resourceId, pageable);
+    public Page<AuditLogDto> getResourceAuditLogs(String resourceType, String resourceId, Pageable pageable) {
+        return toDtoPage(auditLogRepository.findByResourceTypeAndResourceIdOrderByTimestampDesc(resourceType, resourceId, pageable));
     }
 
-    public Page<AuditLog> getFilteredAuditLogs(Long userId, String action, String resourceType,
+    private static Page<AuditLogDto> toDtoPage(Page<AuditLog> page) {
+        return page.map(AuditLogDto::from);
+    }
+
+    public Page<AuditLogDto> getFilteredAuditLogs(Long workspaceId, Long userId, String action, String resourceType,
                                                LocalDateTime startDate, LocalDateTime endDate,
                                                Boolean success, Pageable pageable) {
-        return auditLogRepository.findByFilters(userId, action, resourceType, startDate, endDate, success, pageable);
+        Specification<AuditLog> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (workspaceId != null) {
+                // Rows carry workspace_id when known; otherwise scope by the resource they reference.
+                Subquery<String> envIds = query.subquery(String.class);
+                Root<com.maheshshinde.CryptEnv.model.Environment> env = envIds.from(com.maheshshinde.CryptEnv.model.Environment.class);
+                envIds.select(env.get("id").as(String.class))
+                        .where(cb.equal(env.get("workspace").get("id"), workspaceId));
+                Subquery<String> secretKeys = query.subquery(String.class);
+                Root<com.maheshshinde.CryptEnv.model.Secret> secret = secretKeys.from(com.maheshshinde.CryptEnv.model.Secret.class);
+                secretKeys.select(secret.get("key"))
+                        .where(cb.equal(secret.get("environment").get("workspace").get("id"), workspaceId));
+                predicates.add(cb.or(
+                        cb.equal(root.get("workspaceId"), workspaceId),
+                        cb.and(cb.equal(root.get("resourceType"), "WORKSPACE"),
+                                cb.equal(root.get("resourceId"), String.valueOf(workspaceId))),
+                        cb.and(cb.equal(root.get("resourceType"), "ENVIRONMENT"),
+                                root.get("resourceId").in(envIds)),
+                        cb.and(cb.equal(root.get("resourceType"), "SECRET"),
+                                root.get("resourceId").in(secretKeys))
+                ));
+            }
+            if (userId != null) {
+                predicates.add(cb.equal(root.get("user").get("id"), userId));
+            }
+            if (action != null && !action.isBlank()) {
+                predicates.add(cb.equal(root.get("action"), action));
+            }
+            if (resourceType != null && !resourceType.isBlank()) {
+                predicates.add(cb.equal(root.get("resourceType"), resourceType));
+            }
+            if (startDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("timestamp"), startDate));
+            }
+            if (endDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("timestamp"), endDate));
+            }
+            if (success != null) {
+                predicates.add(cb.equal(root.get("success"), success));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return toDtoPage(auditLogRepository.findAll(spec, pageable));
     }
 
-    public Page<AuditLog> getWorkspaceAuditLogs(Long workspaceId, Pageable pageable) {
-        return auditLogRepository.findByWorkspaceIdOrderByTimestampDesc(workspaceId, pageable);
+    public Page<AuditLogDto> getWorkspaceAuditLogs(Long workspaceId, Pageable pageable) {
+        return toDtoPage(auditLogRepository.findByWorkspaceIdOrderByTimestampDesc(workspaceId, pageable));
     }
 
     /** Export audit evidence without user/password/secret-value fields. */
@@ -158,8 +211,8 @@ public class AuditLogService {
             }
             checked++;
             String prev = log.getPreviousHash() == null ? GENESIS_HASH : log.getPreviousHash();
-            if (!expectedPrevious.equals(prev) && checked > 1) {
-                // First hashed row may start after legacy rows; allow genesis or last hashed
+            if (!expectedPrevious.equals(prev)) {
+                broken.add(log.getId());
             }
             String recomputed = computeEntryHash(log, prev);
             if (!recomputed.equals(log.getEntryHash())) {
@@ -176,9 +229,12 @@ public class AuditLogService {
     }
 
     static String computeEntryHash(AuditLog log, String previousHash) {
-        String canonical = String.join("|",
+        return sha256(canonicalString(log, previousHash));
+    }
+
+    static String canonicalString(AuditLog log, String previousHash) {
+        return String.join("|",
                 nullToEmpty(previousHash),
-                log.getId() != null ? String.valueOf(log.getId()) : "",
                 log.getUser() != null ? String.valueOf(log.getUser().getId()) : "",
                 nullToEmpty(log.getAction()),
                 nullToEmpty(log.getResourceType()),
@@ -187,8 +243,14 @@ public class AuditLogService {
                 nullToEmpty(log.getIpAddress()),
                 nullToEmpty(log.getDetails()),
                 log.getWorkspaceId() != null ? String.valueOf(log.getWorkspaceId()) : "",
-                log.getTimestamp() != null ? log.getTimestamp().toString() : ""
+                // Sub-second precision does not survive the UTC round-trip through the DB exactly.
+                log.getTimestamp() != null
+                        ? log.getTimestamp().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()
+                        : ""
         );
+    }
+
+    static String sha256(String canonical) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(canonical.getBytes(StandardCharsets.UTF_8)));
@@ -199,11 +261,6 @@ public class AuditLogService {
 
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
-    }
-
-    @Transactional
-    public int deleteOldLogs(LocalDateTime beforeDate) {
-        return auditLogRepository.deleteByTimestampBefore(beforeDate);
     }
 
     private String getClientIpAddress(HttpServletRequest request) {
