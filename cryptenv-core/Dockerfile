@@ -4,16 +4,18 @@
 # STAGE 1: Build fat JAR with GraalVM JDK
 # STAGE 2: Slim runtime with GraalVM JRE, JIT + aggressive memory tuning
 #
-# Memory profile (target: 512MB Render instance)
-#   Heap:    ~281 MB (MaxRAMPercentage=55)
-#   Metaspace: 128 MB cap
-#   CodeCache:  64 MB cap
-#   Direct:     32 MB cap
+# Memory profile (target: 512MB Render instance; 1GB recommended)
+#   Heap:    ~333 MB (MaxRAMPercentage=65)
+#   Metaspace: 112 MB cap
+#   CodeCache:  48 MB cap
+#   Direct:     16 MB cap
 #   Threads:   ~16 MB (32 thr * 512KB stack)
 #   OS + other: ~55 MB
-#   TOTAL est: < 500 MB (safe margin for 512MB cgroup limit)
+#   TOTAL est: < 512 MB (tight — use the Starter plan if restarts persist)
 #
-# Startup optimizations
+# Startup notes
+#   Log levels default to INFO/WARN; SQL TRACE logging before this change caused
+#   GC thrash and OutOfMemoryError during startup on 512MB, so keep them off.
 #   TieredCompilation C1-only (fast warmup, minimal code cache)
 #   Compressed Oops + Class Pointers (smaller object layout)
 #   SerialGC (lower overhead than G1 for <2GB heaps)
@@ -65,28 +67,25 @@ COPY --from=build /build/layers/application/ ./
 
 EXPOSE 8080
 
-# --- GraalVM JIT tuned for 512MB Render free tier ---
+# --- GraalVM JIT tuned for small Render instances (512MB+; 1GB recommended) ---
 ENV JAVA_OPTS="\
 -XX:+UseSerialGC \
--XX:MaxRAMPercentage=55.0 \
--XX:InitialRAMPercentage=28.0 \
+-XX:MaxRAMPercentage=65.0 \
+-XX:InitialRAMPercentage=30.0 \
 -XX:MinRAMPercentage=10.0 \
--XX:MaxMetaspaceSize=128m \
+-XX:MaxMetaspaceSize=112m \
 -XX:MetaspaceSize=64m \
--XX:ReservedCodeCacheSize=64m \
--XX:InitialCodeCacheSize=16m \
--XX:MaxDirectMemorySize=32m \
+-XX:ReservedCodeCacheSize=48m \
+-XX:InitialCodeCacheSize=8m \
+-XX:MaxDirectMemorySize=16m \
 -XX:+UseCompressedOops \
 -XX:+UseCompressedClassPointers \
--XX:+UseStringDeduplication \
 -XX:+OptimizeStringConcat \
 -XX:+TieredCompilation \
 -XX:TieredStopAtLevel=1 \
 -XX:CICompilerCount=2 \
 -XX:ParallelGCThreads=2 \
 -XX:+ExitOnOutOfMemoryError \
--XX:+HeapDumpOnOutOfMemoryError \
--XX:HeapDumpPath=/tmp \
 -XX:-OmitStackTraceInFastThrow \
 -Xss512k \
 -Djava.security.egd=file:/dev/./urandom \
@@ -124,4 +123,10 @@ ENTRYPOINT ["sh", "-c", "exec java \
   --spring.jpa.properties.hibernate.jdbc.batch_size=16 \
   --spring.jpa.properties.hibernate.order_inserts=true \
   --spring.jpa.properties.hibernate.order_updates=true \
-  --logging.level.root=\"${LOG_LEVEL_ROOT:-INFO}\""]
+  --server.max-http-request-header-size=32KB \
+  --logging.level.root=\"${LOG_LEVEL_ROOT:-INFO}\" \
+  --logging.level.com.maheshshinde.CryptEnv=\"${LOG_LEVEL_APP:-INFO}\" \
+  --logging.level.org.springframework.security=\"${LOG_LEVEL_SECURITY:-WARN}\" \
+  --logging.level.org.hibernate.SQL=\"${LOG_LEVEL_SQL:-WARN}\" \
+  --logging.level.org.hibernate.type.descriptor.sql.BasicBinder=\"${LOG_LEVEL_BINDER:-WARN}\" \
+  --logging.level.org.hibernate.orm.deprecation=ERROR"]

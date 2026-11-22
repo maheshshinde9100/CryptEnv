@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
-    <property name="JSON_LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!-- Levels come from Spring's logging.level.* properties so an environment variable
+         (LOGGING_LEVEL_COM_MAHESHSHINDE_CRYPTENV=DEBUG) can raise detail without a redeploy.
+         Defaults are production-safe: DEBUG/TRACE logging balloons startup memory on small hosts. -->
+    <springProperty scope="context" name="APP_LOG_LEVEL"
+                    source="logging.level.com.maheshshinde.CryptEnv" defaultValue="INFO"/>
+    <springProperty scope="context" name="SECURITY_LOG_LEVEL"
+                    source="logging.level.org.springframework.security" defaultValue="WARN"/>
+    <springProperty scope="context" name="SQL_LOG_LEVEL"
+                    source="logging.level.org.hibernate.SQL" defaultValue="WARN"/>
+    <springProperty scope="context" name="BINDER_LOG_LEVEL"
+                    source="logging.level.org.hibernate.type.descriptor.sql.BasicBinder" defaultValue="WARN"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -22,18 +33,6 @@
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/cryptenv.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/cryptenv.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>30</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-    </appender>
-
     <springProfile name="json-logging">
         <root level="INFO">
             <appender-ref ref="JSON_CONSOLE"/>
@@ -43,12 +42,11 @@
     <springProfile name="!json-logging">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="FILE"/>
         </root>
     </springProfile>
 
-    <logger name="com.maheshshinde.CryptEnv" level="DEBUG"/>
-    <logger name="org.springframework.security" level="DEBUG"/>
-    <logger name="org.hibernate.SQL" level="DEBUG"/>
-    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+    <logger name="com.maheshshinde.CryptEnv" level="${APP_LOG_LEVEL}"/>
+    <logger name="org.springframework.security" level="${SECURITY_LOG_LEVEL}"/>
+    <logger name="org.hibernate.SQL" level="${SQL_LOG_LEVEL}"/>
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="${BINDER_LOG_LEVEL}"/>
 </configuration>
