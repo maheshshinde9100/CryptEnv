@@ -34,6 +34,15 @@ public class EnvValidationConfig {
     @Value("${spring.mail.host:}")
     private String mailHost;
 
+    @Value("${spring.mail.port:587}")
+    private String mailPort;
+
+    @Value("${SPRING_MAIL_USERNAME:}")
+    private String mailUsername;
+
+    @Value("${CRYPTENV_NOTIFICATIONS_FROM:no-reply@cryptenv.local}")
+    private String mailFrom;
+
     @Value("${BREVO_API_KEY:}")
     private String brevoApiKey;
 
@@ -111,9 +120,17 @@ public class EnvValidationConfig {
                     "when the host blocks outbound SMTP ports. MailHog works locally " +
                     "(host=mailhog, port=1025).");
         } else {
-            String transport = StringUtils.hasText(mailHost) ? "SMTP (" + mailHost + ")"
+            String transport = StringUtils.hasText(mailHost)
+                    ? "SMTP (" + mailHost + ":" + mailPort + ")"
                     : StringUtils.hasText(brevoApiKey) ? "Brevo HTTPS API" : "Resend HTTPS API";
             log.info("EnvValidation: email transport = {}", transport);
+            log.info("EnvValidation: mail sender = {} (SMTP username {})",
+                    mailFrom, StringUtils.hasText(mailUsername) ? "set" : "not set");
+            if (StringUtils.hasText(mailHost) && "587".equals(mailPort)
+                    && "true".equalsIgnoreCase(System.getenv("RENDER"))) {
+                log.warn("EnvValidation: Render blocks outbound SMTP port 587. " +
+                        "Set SPRING_MAIL_PORT=2525 for Brevo relay, or switch to BREVO_API_KEY over HTTPS.");
+            }
         }
     }
 

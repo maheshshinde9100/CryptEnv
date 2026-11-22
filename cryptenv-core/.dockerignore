@@ -1,0 +1,11 @@
+# Build-context hygiene: never send local secrets or build output to the Docker daemon.
+.env
+.env.*
+!.env.example
+*.log
+logs/
+target/
+.idea/
+.vscode/
+Dockerfile
+.dockerignore

@@ -726,10 +726,31 @@ Open http://localhost:8025 to read the message.
 
 **Fix, hosted:** set `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`,
 `SPRING_MAIL_PASSWORD`, and enable auth and STARTTLS. Most providers require an app password rather
-than the account password. If the platform blocks outbound port 587 — Render does on some plans —
-skip SMTP entirely and use `CRYPTENV_MAIL_PROVIDER=brevo` with `BREVO_API_KEY`, or
+than the account password. If the platform blocks outbound port 587 — Render does — Brevo's relay
+also answers on **2525**, which is usually open: `SPRING_MAIL_PORT=2525`. Alternatively skip SMTP
+entirely and use `CRYPTENV_MAIL_PROVIDER=brevo` with `BREVO_API_KEY`, or
 `CRYPTENV_MAIL_PROVIDER=resend` with `RESEND_API_KEY`; both send over HTTPS. Verify the sender in
 the provider dashboard and put its address in `CRYPTENV_NOTIFICATIONS_FROM`.
+
+**Where the values come from:** `cryptenv-core/.env.production` is read at startup by the
+application itself, but only for variables that are **not already set in the real environment**.
+Local runs therefore need nothing else; Render, Railway and Docker do not receive that file
+(gitignored, excluded by `.dockerignore`), so the same keys must be entered in the host's
+environment settings or passed with `docker compose --env-file cryptenv-core/.env.production`.
+`java -jar target/*.jar` must run from `cryptenv-core` for the file to be found.
+
+**Reading the startup log:** the API prints the transport it resolved, so a misconfigured mail
+setting is visible immediately:
+
+```
+EnvValidation: email transport = SMTP (smtp-relay.brevo.com:2525)
+EnvValidation: mail sender = you@yourdomain.com (SMTP username set)
+EmailSender SMTP target: smtp-relay.brevo.com:2525 (username set, STARTTLS)
+Mail handed to smtp transport for user@example.com (Your CryptEnv verification code)
+```
+
+A line such as `Mail delivery via smtp failed ...` names the transport error, and
+`No email transport is configured` means no host and no API key reached the process.
 
 **Fix, hosted OAuth:** Google sign-in needs `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
 `GOOGLE_REDIRECT_URI`. The redirect URI is

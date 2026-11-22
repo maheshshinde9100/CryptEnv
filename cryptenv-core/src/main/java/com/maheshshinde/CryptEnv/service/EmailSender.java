@@ -40,6 +40,15 @@ public class EmailSender {
     @Value("${CRYPTENV_MAIL_PROVIDER:auto}")
     private String configuredProvider;
 
+    @Value("${spring.mail.host:}")
+    private String mailHost;
+
+    @Value("${spring.mail.port:587}")
+    private String mailPort;
+
+    @Value("${SPRING_MAIL_USERNAME:}")
+    private String smtpUsername;
+
     @Value("${CRYPTENV_NOTIFICATIONS_FROM:no-reply@cryptenv.local}")
     private String fromAddress;
 
@@ -55,6 +64,14 @@ public class EmailSender {
         factory.setReadTimeout(Duration.ofSeconds(10));
         http = RestClient.builder().requestFactory(factory).build();
         log.info("EmailSender configured: provider={}, from={}", provider(), fromAddress);
+        if ("smtp".equals(provider())) {
+            log.info("EmailSender SMTP target: {}:{} (username {}, STARTTLS)", mailHost, mailPort,
+                    StringUtils.hasText(smtpUsername) ? "set" : "missing");
+            if ("587".equals(mailPort) && "true".equalsIgnoreCase(System.getenv("RENDER"))) {
+                log.warn("EmailSender: Render blocks outbound SMTP port 587. " +
+                        "Set SPRING_MAIL_PORT=2525 (Brevo) or use BREVO_API_KEY over HTTPS.");
+            }
+        }
     }
 
     public boolean isConfigured() {
@@ -64,15 +81,16 @@ public class EmailSender {
     /** Returns the active transport: smtp, brevo, resend, or none. */
     public String provider() {
         String requested = configuredProvider == null ? "auto" : configuredProvider.trim().toLowerCase();
+        boolean smtpReady = StringUtils.hasText(mailHost) && mailSender.getIfAvailable() != null;
         if (!"auto".equals(requested)) {
             return switch (requested) {
-                case "smtp" -> mailSender.getIfAvailable() != null ? "smtp" : "none";
+                case "smtp" -> smtpReady ? "smtp" : "none";
                 case "brevo" -> StringUtils.hasText(brevoApiKey) ? "brevo" : "none";
                 case "resend" -> StringUtils.hasText(resendApiKey) ? "resend" : "none";
                 default -> "none";
             };
         }
-        if (mailSender.getIfAvailable() != null) return "smtp";
+        if (smtpReady) return "smtp";
         if (StringUtils.hasText(brevoApiKey)) return "brevo";
         if (StringUtils.hasText(resendApiKey)) return "resend";
         return "none";
@@ -84,21 +102,42 @@ public class EmailSender {
      */
     public boolean send(String to, String subject, String text) {
         String transport = provider();
+        if ("none".equals(transport)) {
+            log.warn("Mail not sent to {} ({}): no SMTP host, BREVO_API_KEY or RESEND_API_KEY configured",
+                    to, subject);
+            return false;
+        }
         try {
-            switch (transport) {
-                case "smtp" -> sendSmtp(to, subject, text);
-                case "brevo" -> sendBrevo(to, subject, text);
-                case "resend" -> sendResend(to, subject, text);
-                default -> {
-                    log.warn("Mail not sent to {} ({}): no SMTP host, BREVO_API_KEY or RESEND_API_KEY configured",
-                            to, subject);
-                    return false;
-                }
-            }
+            deliver(transport, to, subject, text);
+            log.info("Mail handed to {} transport for {} ({})", transport, to, subject);
             return true;
         } catch (RuntimeException e) {
             log.warn("Mail delivery via {} failed for {}: {}", transport, to, e.getMessage());
-            return false;
+            String fallback = "smtp".equals(transport) && StringUtils.hasText(brevoApiKey) ? "brevo"
+                    : "smtp".equals(transport) && StringUtils.hasText(resendApiKey) ? "resend"
+                    : null;
+            if (fallback == null) {
+                return false;
+            }
+            try {
+                deliver(fallback, to, subject, text);
+                log.info("Mail delivered via {} fallback after SMTP failure", fallback);
+                return true;
+            } catch (RuntimeException retry) {
+                log.warn("Mail fallback via {} failed for {}: {}", fallback, to, retry.getMessage());
+                return false;
+            }
+        }
+    }
+
+    private void deliver(String transport, String to, String subject, String text) {
+        switch (transport) {
+            case "smtp" -> sendSmtp(to, subject, text);
+            case "brevo" -> sendBrevo(to, subject, text);
+            case "resend" -> sendResend(to, subject, text);
+            default -> log.warn(
+                    "Mail not sent to {} ({}): no SMTP host, BREVO_API_KEY or RESEND_API_KEY configured",
+                    to, subject);
         }
     }
 

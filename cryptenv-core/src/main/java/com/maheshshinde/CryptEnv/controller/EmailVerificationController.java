@@ -33,8 +33,10 @@ public class EmailVerificationController {
 
     /** Lets the sign-up UI warn when this deployment cannot send verification mail. */
     @GetMapping("/status")
-    public ResponseEntity<Map<String, Boolean>> status() {
-        return ResponseEntity.ok(Map.of("mailConfigured", verificationService.isMailConfigured()));
+    public ResponseEntity<Map<String, Object>> status() {
+        return ResponseEntity.ok(Map.of(
+                "mailConfigured", verificationService.isMailConfigured(),
+                "provider", verificationService.mailProvider()));
     }
 
     public record EmailRequest(@NotBlank @Email String email) {}

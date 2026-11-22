@@ -72,6 +72,10 @@ public class EmailVerificationService {
         return emailSender.isConfigured();
     }
 
+    public String mailProvider() {
+        return emailSender.provider();
+    }
+
     private void send(String email, String code) {
         boolean sent = emailSender.send(
                 email,
