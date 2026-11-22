@@ -18,11 +18,13 @@ export function Register() {
     firstName: '',
     lastName: '',
   })
+  const [emailCheck, setEmailCheck] = useState(null)
+  const [checkingEmail, setCheckingEmail] = useState(false)
 
   const registerMutation = useMutation({
     mutationFn: () =>
       authAPI.register({
-        email: form.email,
+        email: form.email.trim().toLowerCase(),
         username: form.username,
         password: form.password,
         firstName: form.firstName,
@@ -37,10 +39,31 @@ export function Register() {
     },
   })
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+    if (e.target.name === 'email') setEmailCheck(null)
+  }
+
+  const checkEmailNow = async () => {
+    const candidate = form.email.trim().toLowerCase()
+    if (!candidate.includes('@')) return
+    setCheckingEmail(true)
+    try {
+      const response = await authAPI.checkEmail(candidate)
+      setEmailCheck(response.data)
+    } catch {
+      setEmailCheck(null)
+    } finally {
+      setCheckingEmail(false)
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (emailCheck && !emailCheck.valid) {
+      toast.error(emailCheck.reason || 'Fix the email address before continuing')
+      return
+    }
     if (form.password !== form.confirmPassword) {
       toast.error('Passwords do not match')
       return
@@ -85,7 +108,37 @@ export function Register() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} required />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@company.com"
+                value={form.email}
+                onChange={handleChange}
+                onBlur={checkEmailNow}
+                required
+              />
+              {checkingEmail && <p className="text-xs text-muted-foreground">Checking the domain…</p>}
+              {!checkingEmail && emailCheck && !emailCheck.valid && (
+                <p className="text-xs text-danger">{emailCheck.reason}</p>
+              )}
+              {!checkingEmail && emailCheck?.suggestion && (
+                <p className="text-xs text-muted-foreground">
+                  Did you mean{' '}
+                  <button
+                    type="button"
+                    className="text-foreground underline"
+                    onClick={() => {
+                      setForm((current) => ({ ...current, email: emailCheck.suggestion }))
+                      setEmailCheck({ valid: true, normalized: emailCheck.suggestion, suggestion: null })
+                    }}
+                  >
+                    {emailCheck.suggestion}
+                  </button>
+                  ?
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

@@ -5,6 +5,8 @@ import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { VerifyEmail } from './pages/VerifyEmail'
+import { ForgotPassword } from './pages/ForgotPassword'
+import { GoogleCallback } from './pages/GoogleCallback'
 import { Dashboard } from './pages/Dashboard'
 import { Secrets } from './pages/Secrets'
 import { SecretEditor } from './pages/SecretEditor'
@@ -41,6 +43,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
         <Route
           path="/docs"
