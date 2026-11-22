@@ -11,8 +11,10 @@ import com.maheshshinde.CryptEnv.dto.ResetPasswordDto;
 import com.maheshshinde.CryptEnv.dto.UserLoginDto;
 import com.maheshshinde.CryptEnv.dto.UserRegistrationDto;
 import com.maheshshinde.CryptEnv.dto.UserResponseDto;
+import com.maheshshinde.CryptEnv.dto.VerifyResetCodeDto;
 import com.maheshshinde.CryptEnv.service.AuditLogService;
 import com.maheshshinde.CryptEnv.service.AuthenticationService;
+import com.maheshshinde.CryptEnv.service.EmailAddressService;
 import com.maheshshinde.CryptEnv.service.MfaService;
 import com.maheshshinde.CryptEnv.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +36,7 @@ public class AuthController {
     private final AuditLogService auditLogService;
     private final PasswordResetService passwordResetService;
     private final MfaService mfaService;
+    private final EmailAddressService emailAddressService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user")
@@ -155,6 +158,19 @@ public class AuthController {
             // Avoid leaking whether the email exists via audit failures
         }
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-reset-code")
+    @Operation(summary = "Verify the emailed reset code and obtain a one-time reset token")
+    public ResponseEntity<java.util.Map<String, String>> verifyResetCode(
+            @Valid @RequestBody VerifyResetCodeDto dto) {
+        return ResponseEntity.ok(passwordResetService.verifyCode(dto));
+    }
+
+    @GetMapping("/email-check")
+    @Operation(summary = "Check email syntax, typos, and whether the domain accepts mail")
+    public ResponseEntity<EmailAddressService.Result> checkEmail(@RequestParam String email) {
+        return ResponseEntity.ok(emailAddressService.check(email));
     }
 
     @PostMapping("/reset-password")

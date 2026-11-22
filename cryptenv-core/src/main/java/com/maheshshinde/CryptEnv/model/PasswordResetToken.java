@@ -35,6 +35,10 @@ public class PasswordResetToken {
     @Column(nullable = false)
     private Boolean used = false;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Integer attempts = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

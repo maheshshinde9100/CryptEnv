@@ -6,9 +6,6 @@ import com.maheshshinde.CryptEnv.repository.EmailVerificationTokenRepository;
 import com.maheshshinde.CryptEnv.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +23,7 @@ public class EmailVerificationService {
     private static final int TTL_MINUTES = 10;
     private final EmailVerificationTokenRepository tokenRepository;
     private final UserRepository userRepository;
-    private final ObjectProvider<JavaMailSender> mailSender;
+    private final EmailSender emailSender;
     private final SecureRandom random = new SecureRandom();
 
     @Transactional
@@ -70,26 +67,18 @@ public class EmailVerificationService {
         tokenRepository.delete(token);
     }
 
-    /** True when a JavaMailSender bean exists, i.e. spring.mail.host is configured. */
+    /** True when SMTP or an HTTPS mail provider is configured. */
     public boolean isMailConfigured() {
-        return mailSender.getIfAvailable() != null;
+        return emailSender.isConfigured();
     }
 
     private void send(String email, String code) {
-        JavaMailSender sender = mailSender.getIfAvailable();
-        if (sender == null) {
-            log.warn("Email verification is pending for {} because SMTP is not configured", email);
-            return;
-        }
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(email);
-        message.setSubject("Your CryptEnv verification code");
-        message.setText("Your CryptEnv verification code is " + code + ". It expires in " + TTL_MINUTES + " minutes.");
-        try {
-            sender.send(message);
-        } catch (RuntimeException e) {
-            // A mail outage must not fail registration; the user can request a resend.
-            log.warn("Could not send verification email to {}: {}", email, e.getMessage());
+        boolean sent = emailSender.send(
+                email,
+                "Your CryptEnv verification code",
+                "Your CryptEnv verification code is " + code + ". It expires in " + TTL_MINUTES + " minutes.");
+        if (!sent) {
+            log.warn("Verification code for {} was stored but could not be delivered", email);
         }
     }
 
