@@ -5,19 +5,27 @@
 # STAGE 2: Slim runtime with GraalVM JRE, JIT + aggressive memory tuning
 #
 # Memory profile (target: 512MB Render instance; 1GB recommended)
-#   Heap:    ~230 MB (MaxRAMPercentage=45)
-#   Metaspace: 112 MB cap (measured ~90 MB)
-#   CodeCache:  32 MB cap
+#   Heap:     224 MB hard cap (-Xmx224m, measured ~129 MB used after boot)
+#   Metaspace: 128 MB cap (measured ~90 MB)
+#   CodeCache:  24 MB cap
 #   Direct:      8 MB cap
 #   Threads:   ~10 MB (Tomcat 16 thr * 512KB stack)
 #   OS + other: ~50 MB
-#   TOTAL est: ~430 MB — leaves headroom under the 512MB cgroup kill
+#   TOTAL est: ~445 MB — leaves headroom under the 512MB cgroup kill
+#
+#   Sizes are absolute, not MaxRAMPercentage: when a host does not expose the
+#   container's cgroup limit, percentage sizing resolves against the host's
+#   RAM and commits a heap far larger than 512MB, which the platform reports
+#   as "Out of memory (used over 512Mi)" within the first minute.
+#   MaxRAM=512m also bounds any remaining ergonomic sizing.
 #
 # Startup notes
 #   Log levels default to INFO/WARN; SQL TRACE logging before this change caused
 #   GC thrash and OutOfMemoryError during startup on 512MB, so keep them off.
-#   ActiveProcessorCount=2 stops the JVM sizing compiler/GC threads for the
-#   host's CPU count, which Render free instances do not actually give you.
+#   ActiveProcessorCount=1 + CICompilerCount=2 stop the JVM sizing compiler/GC
+#   threads for the host's CPU count, which Render free instances do not give.
+#   PrintCommandLineFlags logs the real InitialHeapSize/MaxHeapSize on every
+#   boot, so the next Render log proves which profile the JVM picked up.
 #   TieredCompilation C1-only (fast warmup, minimal code cache)
 #   Compressed Oops + Class Pointers (smaller object layout)
 #   SerialGC (lower overhead than G1 for <2GB heaps)
@@ -71,23 +79,26 @@ EXPOSE 8080
 
 # --- GraalVM JIT tuned for small Render instances (512MB+; 1GB recommended) ---
 ENV JAVA_OPTS="\
--XX:+UseSerialGC \
--XX:MaxRAMPercentage=45.0 \
--XX:InitialRAMPercentage=20.0 \
--XX:MaxMetaspaceSize=112m \
--XX:MetaspaceSize=64m \
--XX:ReservedCodeCacheSize=32m \
+-Xms64m \
+-Xmx224m \
+-XX:MaxRAM=512m \
+-XX:MaxMetaspaceSize=128m \
+-XX:MetaspaceSize=96m \
+-XX:ReservedCodeCacheSize=24m \
 -XX:InitialCodeCacheSize=8m \
 -XX:MaxDirectMemorySize=8m \
--XX:ActiveProcessorCount=2 \
+-XX:+UseSerialGC \
+-XX:ActiveProcessorCount=1 \
 -XX:+UseCompressedOops \
 -XX:+UseCompressedClassPointers \
 -XX:+OptimizeStringConcat \
 -XX:+TieredCompilation \
 -XX:TieredStopAtLevel=1 \
 -XX:CICompilerCount=2 \
+-XX:-UsePerfData \
 -XX:+ExitOnOutOfMemoryError \
 -XX:-OmitStackTraceInFastThrow \
+-XX:+PrintCommandLineFlags \
 -Xss512k \
 -Djava.security.egd=file:/dev/./urandom \
 -Dfile.encoding=UTF-8 \
