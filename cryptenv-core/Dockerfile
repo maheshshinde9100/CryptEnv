@@ -5,17 +5,19 @@
 # STAGE 2: Slim runtime with GraalVM JRE, JIT + aggressive memory tuning
 #
 # Memory profile (target: 512MB Render instance; 1GB recommended)
-#   Heap:    ~333 MB (MaxRAMPercentage=65)
-#   Metaspace: 112 MB cap
-#   CodeCache:  48 MB cap
-#   Direct:     16 MB cap
-#   Threads:   ~16 MB (32 thr * 512KB stack)
-#   OS + other: ~55 MB
-#   TOTAL est: < 512 MB (tight — use the Starter plan if restarts persist)
+#   Heap:    ~230 MB (MaxRAMPercentage=45)
+#   Metaspace: 112 MB cap (measured ~90 MB)
+#   CodeCache:  32 MB cap
+#   Direct:      8 MB cap
+#   Threads:   ~10 MB (Tomcat 16 thr * 512KB stack)
+#   OS + other: ~50 MB
+#   TOTAL est: ~430 MB — leaves headroom under the 512MB cgroup kill
 #
 # Startup notes
 #   Log levels default to INFO/WARN; SQL TRACE logging before this change caused
 #   GC thrash and OutOfMemoryError during startup on 512MB, so keep them off.
+#   ActiveProcessorCount=2 stops the JVM sizing compiler/GC threads for the
+#   host's CPU count, which Render free instances do not actually give you.
 #   TieredCompilation C1-only (fast warmup, minimal code cache)
 #   Compressed Oops + Class Pointers (smaller object layout)
 #   SerialGC (lower overhead than G1 for <2GB heaps)
@@ -70,21 +72,20 @@ EXPOSE 8080
 # --- GraalVM JIT tuned for small Render instances (512MB+; 1GB recommended) ---
 ENV JAVA_OPTS="\
 -XX:+UseSerialGC \
--XX:MaxRAMPercentage=65.0 \
--XX:InitialRAMPercentage=30.0 \
--XX:MinRAMPercentage=10.0 \
+-XX:MaxRAMPercentage=45.0 \
+-XX:InitialRAMPercentage=20.0 \
 -XX:MaxMetaspaceSize=112m \
 -XX:MetaspaceSize=64m \
--XX:ReservedCodeCacheSize=48m \
+-XX:ReservedCodeCacheSize=32m \
 -XX:InitialCodeCacheSize=8m \
--XX:MaxDirectMemorySize=16m \
+-XX:MaxDirectMemorySize=8m \
+-XX:ActiveProcessorCount=2 \
 -XX:+UseCompressedOops \
 -XX:+UseCompressedClassPointers \
 -XX:+OptimizeStringConcat \
 -XX:+TieredCompilation \
 -XX:TieredStopAtLevel=1 \
 -XX:CICompilerCount=2 \
--XX:ParallelGCThreads=2 \
 -XX:+ExitOnOutOfMemoryError \
 -XX:-OmitStackTraceInFastThrow \
 -Xss512k \
