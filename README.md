@@ -56,6 +56,8 @@ CLI, VS Code extension, or SDKs. No plaintext `.env` file is ever written to dis
   - [Ciphertext formats](#ciphertext-formats)
   - [Authentication and authorization](#authentication-and-authorization)
   - [Email verification](#email-verification)
+  - [Password reset](#password-reset)
+  - [Google sign-in](#google-sign-in)
 - [Data model](#data-model)
 - [Secret lifecycle](#secret-lifecycle)
 - [Rotation and approvals](#rotation-and-approvals)
@@ -94,7 +96,7 @@ CryptEnv removes the file from the equation:
 |---|---|
 | **Vault** | Workspaces → projects → environments; typed secrets; versioning; branches; import/export; secret references |
 | **Cryptography** | AES-256-GCM; PBKDF2-HMAC-SHA256 workspace-key derivation (`v2:` format); optional AAD binding; optional envelope encryption of data keys; master-key rotation |
-| **Identity** | Email + password, JWT access/refresh with rotation and reuse detection, TOTP MFA with recovery codes, account lockout, password reset, email verification, OAuth connections, CLI device-code login, WebAuthn credentials |
+| **Identity** | Email + password, JWT access/refresh with rotation and reuse detection, TOTP MFA with recovery codes, account lockout, email verification, password reset by emailed code, Google OAuth 2.0 sign-in, OAuth connections, CLI device-code login, WebAuthn credentials |
 | **Access control** | Workspace-scoped roles, invitations, JIT access requests, access reviews, step-up MFA for sensitive actions, scoped API keys and machine identities |
 | **Governance** | Audit log, approval workflows for writes/deletes/rotations, webhooks, notifications, outbox events, SSE stream |
 | **Detection** | Drift detection between vault and synced platforms, leak findings, security incidents, posture score |
@@ -218,7 +220,7 @@ flowchart LR
   APP -->|SPRING_MAIL_*| MAILP
   VERCEL --> RND
   RND --> NEON
-  RND --> MAILP
+  RND -->|SMTP 587 or HTTPS API| MAILP
   APP -.->|same image| RND
 ```
 
@@ -329,6 +331,55 @@ sequenceDiagram
 
 The status endpoint exists so the sign-up UI can warn before a user waits for mail that will never
 arrive. See [Verification email troubleshooting](#verification-email-troubleshooting).
+
+### Password reset
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant API as cryptenv-core
+  participant DB as PostgreSQL
+  participant M as Mail transport
+
+  U->>API: POST /api/auth/forgot-password {email}
+  API->>DB: upsert hashed 6-digit reset code (10 min TTL)
+  API->>M: send reset email (SMTP, Brevo or Resend)
+  API-->>U: always 200, no account enumeration
+  U->>API: POST /api/auth/verify-reset-code {email, code}
+  API->>DB: check hash, TTL, attempts
+  API-->>U: single-use resetToken (15 min)
+  U->>API: POST /api/auth/reset-password {resetToken, newPassword}
+  API->>DB: Argon2 hash, revoke sessions and refresh tokens
+  API-->>U: signed out everywhere, can sign in
+```
+
+The dashboard exposes the same flow at `/forgot-password`; the CLI uses `cryptenv forgot-password`
+and the extension ships `CryptEnv: Reset Password`.
+
+### Google sign-in
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant API as cryptenv-core
+  participant G as Google Identity
+
+  B->>API: GET /api/auth/oauth/google/start?redirectUri=...
+  API-->>B: 302 to accounts.google.com (state + PKCE)
+  B->>G: consent
+  G-->>API: GET /api/auth/oauth/google/callback?code&state
+  API->>G: exchange code for tokens
+  API->>API: verify id_token, find or link user
+  API-->>B: 302 to dashboard with one-time exchange code
+  B->>API: POST /api/auth/oauth/google/exchange {code}
+  API-->>B: access + refresh tokens
+```
+
+Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REDIRECT_URI`; the redirect must be
+registered verbatim in Google Console. `CRYPTENV_DASHBOARD_URL` decides where the browser lands
+after the callback, and `CRYPTENV_OAUTH_ALLOWED_ORIGINS` can whitelist extra front-end origins.
 
 ---
 
@@ -629,6 +680,16 @@ intentional, so a deployment cannot silently run with weak keys.
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH` | no* | `true` for authenticated SMTP |
 | `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE` | no* | `true` for STARTTLS |
 | `CRYPTENV_NOTIFICATIONS_FROM` | no | From address, default `no-reply@cryptenv.local` |
+| `CRYPTENV_NOTIFICATIONS_FROM_NAME` | no | Sender display name, default `CryptEnv` |
+| `CRYPTENV_MAIL_PROVIDER` | no | `smtp`, `brevo`, `resend` or `none`; auto-detected when unset |
+| `BREVO_API_KEY` | no | Brevo HTTPS API key; use when the host blocks SMTP ports |
+| `RESEND_API_KEY` | no | Resend HTTPS API key; alternative to Brevo |
+| `CRYPTENV_EMAIL_DNS_CHECK` | no | Validate signup email domains over DNS, default `true` (fails open when DNS is unavailable) |
+| `GOOGLE_CLIENT_ID` | no | Google OAuth 2.0 web client id |
+| `GOOGLE_CLIENT_SECRET` | no | Google OAuth 2.0 web client secret |
+| `GOOGLE_REDIRECT_URI` | no | Must exactly match the Authorized redirect URI in Google Console |
+| `CRYPTENV_DASHBOARD_URL` | no | Dashboard URL that receives the OAuth result, default `http://localhost:3000` |
+| `CRYPTENV_OAUTH_ALLOWED_ORIGINS` | no | Extra origins allowed to receive the OAuth redirect |
 | `CORS_ALLOWED_ORIGINS` | no | Comma-separated dashboard origins |
 | `JWT_EXPIRATION` / `JWT_REFRESH_EXPIRATION` | no | Token lifetimes in milliseconds |
 | `CRYPTENV_FLYWAY_ENABLED` | no | Run migrations at startup, default `true` |
@@ -665,7 +726,38 @@ Open http://localhost:8025 to read the message.
 
 **Fix, hosted:** set `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`,
 `SPRING_MAIL_PASSWORD`, and enable auth and STARTTLS. Most providers require an app password rather
-than the account password.
+than the account password. If the platform blocks outbound port 587 — Render does — Brevo's relay
+also answers on **2525**, which is usually open: `SPRING_MAIL_PORT=2525`. Alternatively skip SMTP
+entirely and use `CRYPTENV_MAIL_PROVIDER=brevo` with `BREVO_API_KEY`, or
+`CRYPTENV_MAIL_PROVIDER=resend` with `RESEND_API_KEY`; both send over HTTPS. Verify the sender in
+the provider dashboard and put its address in `CRYPTENV_NOTIFICATIONS_FROM`.
+
+**Where the values come from:** `cryptenv-core/.env.production` is read at startup by the
+application itself, but only for variables that are **not already set in the real environment**.
+Local runs therefore need nothing else; Render, Railway and Docker do not receive that file
+(gitignored, excluded by `.dockerignore`), so the same keys must be entered in the host's
+environment settings or passed with `docker compose --env-file cryptenv-core/.env.production`.
+`java -jar target/*.jar` must run from `cryptenv-core` for the file to be found.
+
+**Reading the startup log:** the API prints the transport it resolved, so a misconfigured mail
+setting is visible immediately:
+
+```
+EnvValidation: email transport = SMTP (smtp-relay.brevo.com:2525)
+EnvValidation: mail sender = you@yourdomain.com (SMTP username set)
+EmailSender SMTP target: smtp-relay.brevo.com:2525 (username set, STARTTLS)
+Mail handed to smtp transport for user@example.com (Your CryptEnv verification code)
+```
+
+A line such as `Mail delivery via smtp failed ...` names the transport error, and
+`No email transport is configured` means no host and no API key reached the process.
+
+**Fix, hosted OAuth:** Google sign-in needs `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+`GOOGLE_REDIRECT_URI`. The redirect URI is
+`<backend>/api/auth/oauth/google/callback` and must be listed verbatim in Google Console →
+APIs & Services → Credentials → OAuth client → Authorized redirect URIs. After the callback the
+backend hands the session to `CRYPTENV_DASHBOARD_URL`; add any additional front-end origins to
+`CRYPTENV_OAUTH_ALLOWED_ORIGINS`.
 
 **Check without sending mail:**
 
@@ -686,8 +778,9 @@ All routes are under `/api`. Authentication is a Bearer JWT or API key unless no
 
 | Group | Base path | Highlights |
 |---|---|---|
-| Auth | `/auth` | register, login, refresh, logout, MFA, password reset |
+| Auth | `/auth` | register, login, refresh, logout, MFA, forgot-password, verify-reset-code, reset-password, email-check |
 | Email verification | `/auth/email-verification` | verify, resend, status (public) |
+| Google OAuth 2.0 | `/auth/oauth/google` | `start`, `callback`, `exchange` (public) |
 | Device code / OAuth | `/auth/device-code`, `/auth/oauth` | CLI login, external identity |
 | Workspaces | `/workspaces` | CRUD, members, keys, invitations |
 | Projects | `/workspaces/{id}/projects` | project grouping |

@@ -1,51 +1,54 @@
 const fs = require('fs');
 const path = require('path');
-const chalk = require('chalk');
 const inquirer = require('inquirer');
+const axios = require('axios');
+const { DEFAULT_API_URL } = require('../utils/config');
+const ui = require('../utils/ui');
 
-const DEFAULT_API_URL = 'https://cryptenv-backend.onrender.com/api';
-// const DEFAULT_API_URL = 'http://localhost:8080/api';
-
-async function init() {
+async function init(options = {}) {
   try {
     const configPath = path.join(process.cwd(), '.cryptenv.json');
 
     if (fs.existsSync(configPath)) {
-      console.log(chalk.yellow('CryptEnv is already initialized in this directory'));
+      console.log(ui.warn('This directory is already initialized.'));
+      console.log(ui.hint(`Edit ${configPath} or run cryptenv use to change context.`));
       return;
     }
 
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'apiUrl',
-        message: 'CryptEnv API URL:',
-        default: DEFAULT_API_URL,
-        validate: (input) => input.length > 0 || 'API URL is required'
-      },
-      {
-        type: 'input',
-        name: 'workspace',
-        message: 'Workspace name:',
-        default: path.basename(process.cwd()),
-        validate: (input) => input.length > 0 || 'Workspace name is required'
-      }
-    ]);
+    let apiUrl = options.apiUrl;
+    if (!apiUrl) {
+      const answer = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'apiUrl',
+          message: 'CryptEnv API URL:',
+          default: DEFAULT_API_URL,
+          validate: (input) => /^https?:\/\/.+/.test(input.trim()) || 'Enter an http(s) URL',
+        },
+      ]);
+      apiUrl = answer.apiUrl;
+    }
+    apiUrl = apiUrl.trim().replace(/\/+$/, '');
 
-    const config = {
-      apiUrl: answers.apiUrl,
-      workspace: answers.workspace,
-      createdAt: new Date().toISOString()
-    };
+    const config = { apiUrl, createdAt: new Date().toISOString() };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log(ui.success(`Created ${configPath}`));
+    console.log(ui.hint('This file contains no secrets and is safe to commit.'));
 
-    console.log(chalk.green('CryptEnv initialized successfully!'));
-    console.log(chalk.blue(`Configuration saved to: ${configPath}`));
-    console.log(chalk.blue(`Using API: ${answers.apiUrl}`));
-    console.log(chalk.yellow('Run: cryptenv login to authenticate'));
+    const base = apiUrl.replace(/\/api\/?$/, '');
+    try {
+      await axios.get(`${base}/health`, { timeout: 8000 });
+      console.log(ui.success('Backend reachable'));
+    } catch {
+      console.log(ui.warn('Could not reach the backend yet (free hosts may take ~30s to wake).'));
+    }
+
+    console.log(ui.nextStep('cryptenv login'));
+    console.log(ui.hint('After signing in, run cryptenv use to pick a workspace and environment.'));
   } catch (error) {
-    console.error(chalk.red('Error:', error.message));
+    console.error(ui.error(error.message));
+    process.exitCode = 1;
   }
 }
 

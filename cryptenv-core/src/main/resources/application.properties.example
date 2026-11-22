@@ -16,6 +16,12 @@
 
 # -------- Server --------
 server.port=${PORT:8080}
+# Render and Docker terminate TLS, so the app must trust X-Forwarded-* to build
+# correct URLs - Google OAuth callbacks and dashboard redirects break without it.
+server.forward-headers-strategy=framework
+# OAuth callbacks carry a long authorization code plus every cookie stored for this
+# host; Tomcat's 8 KB default rejects them with a bare HTTP 400 before Spring runs.
+server.max-http-request-header-size=32KB
 server.address=0.0.0.0
 server.shutdown=graceful
 
@@ -125,17 +131,23 @@ cryptenv.approvals.ttl-hours=${CRYPTENV_APPROVALS_TTL_HOURS:24}
 cryptenv.approvals.sweep-ms=${CRYPTENV_APPROVALS_SWEEP_MS:300000}
 cryptenv.approvals.sweep-initial-delay-ms=${CRYPTENV_APPROVALS_SWEEP_INITIAL_DELAY_MS:60000}
 
-# -------- Email (SMTP) --------
-# The JavaMailSender bean is created ONLY when spring.mail.host is set; otherwise the email
-# channel is skipped and the deployment still boots. Leave the block commented out to disable it.
-# On Render, set SPRING_MAIL_HOST / SPRING_MAIL_PORT / SPRING_MAIL_USERNAME / SPRING_MAIL_PASSWORD
-# (Spring Boot relaxed binding maps those env vars to the properties below).
-#spring.mail.host=smtp.example.com
-#spring.mail.port=587
-#spring.mail.username=
-#spring.mail.password=
-#spring.mail.properties.mail.smtp.auth=true
-#spring.mail.properties.mail.smtp.starttls.enable=true
+# -------- Email (SMTP + HTTPS fallback) --------
+# This file is what a Docker/Render image builds with when the real
+# application.properties is absent, so the mappings below must stay explicit:
+# without STARTTLS an unauthenticated plain connection is attempted and relays
+# such as Brevo answer "538 Encryption required" - codes never arrive.
+# Transport order: CRYPTENV_MAIL_PROVIDER (smtp|brevo|resend|none), otherwise SMTP when
+# configured, then BREVO_API_KEY, then RESEND_API_KEY.
+spring.mail.host=${SPRING_MAIL_HOST:}
+spring.mail.port=${SPRING_MAIL_PORT:587}
+spring.mail.username=${SPRING_MAIL_USERNAME:}
+spring.mail.password=${SPRING_MAIL_PASSWORD:}
+spring.mail.properties.mail.smtp.auth=${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:true}
+spring.mail.properties.mail.smtp.starttls.enable=${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
+spring.mail.properties.mail.smtp.starttls.required=true
+spring.mail.properties.mail.smtp.connectiontimeout=10000
+spring.mail.properties.mail.smtp.timeout=10000
+spring.mail.properties.mail.smtp.writetimeout=10000
 
 
 # -------- Swagger / OpenAPI --------

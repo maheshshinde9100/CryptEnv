@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { authAPI } from '../lib/api'
 import { toast } from 'sonner'
@@ -8,18 +8,29 @@ import { Label } from '../components/ui/label'
 import { Button } from '../components/ui/button'
 import { Eye, EyeOff } from 'lucide-react'
 import { BrandLogo } from '../components/BrandLogo'
+import { GoogleAuthButton } from '../components/GoogleAuthButton'
 
 export function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
+  const resetToastShown = useRef(false)
+
+  useEffect(() => {
+    if (searchParams.get('reset') && !resetToastShown.current) {
+      resetToastShown.current = true
+      toast.success('Password updated — sign in with your new password')
+    }
+  }, [searchParams])
 
   const loginMutation = useMutation({
     mutationFn: () => authAPI.login(email, password),
     onSuccess: (response) => {
       const data = response.data
       localStorage.setItem('token', data.token)
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
       if (data.user || data.email) {
         localStorage.setItem(
           'user',
@@ -30,7 +41,11 @@ export function Login() {
       navigate('/overview')
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Invalid email or password')
+      const message = error.response?.data?.message || 'Invalid email or password'
+      toast.error(message)
+      if (error.response?.status === 403 && /verify/i.test(message)) {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`)
+      }
     },
   })
 
@@ -72,7 +87,12 @@ export function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   id="password"
@@ -97,6 +117,9 @@ export function Login() {
               {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
+
+          <GoogleAuthButton />
+
           <p className="mt-5 text-center text-sm text-muted-foreground">
             New here?{' '}
             <Link to="/register" className="text-foreground hover:underline">

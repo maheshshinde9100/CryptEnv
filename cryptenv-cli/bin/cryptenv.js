@@ -13,22 +13,54 @@ const contextCommands = require('../src/commands/context');
 const { doctor, whoami, status } = require('../src/commands/doctor');
 const { completion } = require('../src/commands/completion');
 const scanCommands = require('../src/commands/scan');
+const ui = require('../src/utils/ui');
+const pkg = require('../package.json');
+
+authCommands.installAuthInterceptor();
 
 program
   .name('cryptenv')
   .description('CryptEnv CLI — runtime secret injection & vault management')
-  .version('1.4.0')
-  .enablePositionalOptions();
+  .version(pkg.version)
+  .enablePositionalOptions()
+  .addHelpText('beforeAll', ui.banner())
+  .addHelpText('after', `
+${ui.dim('Examples:')}
+  cryptenv login --email you@company.com
+  cryptenv use
+  cryptenv secrets set DATABASE_URL "postgres://..."
+  cryptenv run -- npm start
 
-program.command('init').description('Initialize CryptEnv configuration (.cryptenv.json)').action(initCommand);
-program.command('register').description('Register a new CryptEnv account').action(authCommands.register);
-program.command('login').description('Authenticate with CryptEnv (JWT)').action(authCommands.login);
+Docs: https://github.com/maheshshinde9100/CryptEnv#readme`);
+
+program.configureHelp({ sortSubcommands: true });
+
+program
+  .command('init')
+  .option('--api-url <url>', 'Backend API URL to store in .cryptenv.json')
+  .description('Initialize CryptEnv configuration (.cryptenv.json)')
+  .action(initCommand);
+program.command('register').description('Create an account and verify your email').action(authCommands.register);
+program
+  .command('login')
+  .option('--email <email>', 'Skip the email prompt')
+  .description('Authenticate with CryptEnv (handles MFA)')
+  .action(authCommands.login);
+program
+  .command('verify-email [email]')
+  .option('--resend', 'Send a fresh verification code')
+  .description('Verify a signup email with the 6-digit code')
+  .action(authCommands.verifyEmail);
+program
+  .command('forgot-password [email]')
+  .description('Reset a password with the emailed 6-digit code')
+  .action(authCommands.forgotPassword);
 program
   .command('logout')
   .option('--everywhere', 'Revoke all sessions for this account')
   .description('Logout from CryptEnv')
   .action(authCommands.logout);
-program.command('profile').description('Show current user profile').action(profileCommand);
+program.command('profile').option('--json', 'JSON output').description('Show current user profile').action(profileCommand);
 program.command('whoami').option('--json', 'JSON output').description('Show authenticated user').action(whoami);
 program.command('status').option('--json', 'JSON output').description('Show auth + workspaces').action(status);
 program.command('doctor').description('Check API health and local config').action(doctor);
@@ -40,7 +72,7 @@ program
   .command('use')
   .option('-w, --workspace <id>', 'Workspace id')
   .option('-e, --env <id>', 'Environment id')
-  .option('-y, --yes', 'Auto-select when only one option exists')
+  .option('-y, --yes', 'Auto-select the first option')
   .description('Set active workspace/environment for this directory')
   .action(contextCommands.use);
 program
@@ -51,7 +83,7 @@ program
   .action(contextCommands.envs);
 
 // --- Secrets ------------------------------------------------------------------
-const secretsCmd = program.command('secrets').description('Manage secrets');
+const secretsCmd = program.command('secrets').alias('secret').description('Manage secrets');
 const envOpts = (cmd) =>
   cmd
     .option('-w, --workspace <id>', 'Workspace id')
@@ -62,9 +94,16 @@ envOpts(secretsCmd.command('ls').description('List secrets')).action((opts) => s
 envOpts(secretsCmd.command('get <key>').description('Get decrypted secret')).action((key, opts) =>
   secretCommands.get(key, opts)
 );
-envOpts(secretsCmd.command('set <key> <value>').description('Create or update secret')).action((key, value, opts) =>
-  secretCommands.set(key, value, opts)
-);
+secretsCmd
+  .command('set <key> <value>')
+  .option('-w, --workspace <id>', 'Workspace id')
+  .option('-e, --env <id>', 'Environment id')
+  .option('-d, --description <text>', 'Description')
+  .option('-t, --type <type>', 'Secret type (TEXT, PASSWORD, API_KEY, ...)')
+  .option('--tags <tags>', 'Comma-separated tags')
+  .option('--json', 'JSON output')
+  .description('Create or update secret')
+  .action((key, value, opts) => secretCommands.set(key, value, opts));
 envOpts(secretsCmd.command('delete <key>').description('Delete secret')).action((key, opts) =>
   secretCommands.delete(key, opts)
 );
@@ -91,6 +130,9 @@ secretsCmd
   .command('rollback <key> <version>')
   .description('Rollback secret to a version')
   .action((key, version, opts) => secretCommands.rollback(key, version, opts));
+envOpts(secretsCmd.command('rotate <key>').description('Generate and apply a new random value')).action((key, opts) =>
+  secretCommands.rotate(key, opts)
+);
 
 // --- Secret lifecycle ---------------------------------------------------------
 const lifecycle = (name, action, configure) => {
@@ -113,7 +155,7 @@ secretsCmd
 
 // --- Workspaces ---------------------------------------------------------------
 const wsCmd = program.command('workspaces').alias('ws').description('Manage workspaces');
-wsCmd.command('ls').description('List workspaces').action(workspaceCommands.list);
+wsCmd.command('ls').option('--json', 'JSON output').description('List workspaces').action(workspaceCommands.list);
 wsCmd
   .command('create <name>')
   .option('-d, --description <text>', 'Description')
@@ -157,6 +199,7 @@ jitCmd
 // --- Runtime ------------------------------------------------------------------
 program
   .command('run <command...>')
+  .option('--dry-run', 'Print injected variable names without running')
   .option('-w, --workspace <id>', 'Workspace id')
   .option('-e, --env <id>', 'Environment id')
   .passThroughOptions()

@@ -1,64 +1,81 @@
 const axios = require('axios');
-const chalk = require('chalk');
 const ora = require('ora');
-const { getAuthToken } = require('./auth');
+const { getAuthHeaders } = require('./auth');
 const config = require('../utils/config');
+const ui = require('../utils/ui');
 
-async function list() {
-  const token = await getAuthToken();
-  if (!token) {
-    console.error(chalk.red('Not authenticated. Run: cryptenv login'));
+async function headers() {
+  const auth = await getAuthHeaders();
+  if (!auth) {
+    console.error(ui.error('Not authenticated. Run: cryptenv login'));
     process.exit(1);
   }
+  return auth;
+}
+
+async function list(opts = {}) {
+  const auth = await headers();
   const spinner = ora('Fetching workspaces...').start();
   try {
-    const apiUrl = config.getApiUrl();
-    const response = await axios.get(`${apiUrl}/workspaces`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    spinner.succeed(chalk.green('Workspaces'));
-    if (!response.data.length) {
-      console.log(chalk.yellow('No workspaces found'));
+    const { data } = await axios.get(`${config.getApiUrl()}/workspaces`, { headers: auth });
+    spinner.succeed(ui.white(`${data.length} workspace${data.length === 1 ? '' : 's'}`));
+    if (opts.json) {
+      console.log(JSON.stringify(data, null, 2));
       return;
     }
-    response.data.forEach((w) => {
-      const keyFlag = w.hasEncryptionKey ? chalk.green('key✓') : chalk.yellow('no-key');
-      console.log(`  ${chalk.cyan(w.id)}  ${w.name}  [${keyFlag}]`);
-    });
+    if (!data.length) {
+      console.log(ui.hint('Create one with: cryptenv workspaces create <name> -k <encryption-key>'));
+      return;
+    }
+    const rows = data.map((w) => [
+      w.id,
+      w.name,
+      w.currentUserRole || (w.owner?.email === 'you' ? 'OWNER' : ''),
+      w.hasEncryptionKey ? ui.badge('ready', 'ok') : ui.badge('no key', 'warn'),
+      ui.timeAgo(w.updatedAt || w.createdAt),
+    ]);
+    console.log('');
+    console.log(ui.table(['ID', 'Workspace', 'Role', 'Encryption', 'Updated'], rows));
   } catch (error) {
-    spinner.fail(chalk.red('Failed to list workspaces'));
-    console.error(chalk.red(error.response?.data?.message || error.message));
+    spinner.fail(ui.danger('Failed to list workspaces'));
+    console.error(ui.hint(error.response?.data?.message || error.message));
+    process.exitCode = 1;
   }
 }
 
-async function create(name, options) {
-  const token = await getAuthToken();
-  if (!token) {
-    console.error(chalk.red('Not authenticated. Run: cryptenv login'));
-    process.exit(1);
-  }
+async function create(name, options = {}) {
+  const auth = await headers();
   const payload = { name };
   if (options.description) payload.description = options.description;
   if (options.key) {
     if (String(options.key).length < 16) {
-      console.error(chalk.red('Workspace encryption key must be at least 16 characters'));
-      process.exit(1);
+      console.error(ui.error('Workspace encryption key must be at least 16 characters'));
+      process.exitCode = 1;
+      return;
     }
     payload.workspaceEncryptionKey = options.key;
   }
   const spinner = ora(`Creating workspace ${name}...`).start();
   try {
-    const apiUrl = config.getApiUrl();
-    const response = await axios.post(`${apiUrl}/workspaces`, payload, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    spinner.succeed(chalk.green(`Created workspace id=${response.data.id}`));
-    if (!options.key) {
-      console.log(chalk.yellow('Tip: set an encryption key with the dashboard or API before storing secrets.'));
+    const { data } = await axios.post(`${config.getApiUrl()}/workspaces`, payload, { headers: auth });
+    spinner.succeed(ui.white(`Created workspace ${data.name} [${data.id}]`));
+    try {
+      const { data: envs } = await axios.get(`${config.getApiUrl()}/environments/workspace/${data.id}`, { headers: auth });
+      if (!envs.length) {
+        await axios.post(`${config.getApiUrl()}/environments`, { name: 'DEVELOPMENT', workspaceId: data.id }, { headers: auth });
+        console.log(ui.hint('Added a default DEVELOPMENT environment.'));
+      }
+    } catch {
+      console.log(ui.hint('Create an environment in the dashboard before adding secrets.'));
     }
+    if (!options.key) {
+      console.log(ui.warn('No encryption key supplied — set one in the dashboard before storing secrets.'));
+    }
+    console.log(ui.nextStep(`cryptenv use --workspace ${data.id}`));
   } catch (error) {
-    spinner.fail(chalk.red('Failed to create workspace'));
-    console.error(chalk.red(error.response?.data?.message || error.message));
+    spinner.fail(ui.danger('Failed to create workspace'));
+    console.error(ui.hint(error.response?.data?.message || error.message));
+    process.exitCode = 1;
   }
 }
 

@@ -32,7 +32,7 @@ public class SecretVersionController {
 
     @GetMapping
     @Operation(summary = "Get secret version history")
-    public ResponseEntity<List<SecretVersion>> getSecretHistory(@PathVariable String key,
+    public ResponseEntity<List<java.util.Map<String, Object>>> getSecretHistory(@PathVariable String key,
                                                                 HttpServletRequest request) {
         securityService.checkPermission(Permission.SECRET_READ);
         List<SecretVersion> versions = secretVersionService.getSecretHistory(key);
@@ -44,12 +44,25 @@ public class SecretVersionController {
                 true,
                 request
         );
-        return ResponseEntity.ok(versions);
+        return ResponseEntity.ok(versions.stream().map(this::toDto).toList());
+    }
+
+    private java.util.Map<String, Object> toDto(SecretVersion version) {
+        java.util.Map<String, Object> dto = new java.util.LinkedHashMap<>();
+        dto.put("id", version.getId());
+        dto.put("secretKey", version.getSecretKey());
+        dto.put("version", version.getVersionNumber());
+        dto.put("active", Boolean.TRUE.equals(version.getIsActive()));
+        dto.put("rotatedByEmail", version.getRotatedByEmail());
+        dto.put("rotationReason", version.getRotationReason());
+        dto.put("createdAt", version.getCreatedAt());
+        dto.put("contentFingerprint", version.getContentFingerprint());
+        return dto;
     }
 
     @GetMapping("/{version}")
     @Operation(summary = "Get specific secret version")
-    public ResponseEntity<SecretVersion> getVersion(@PathVariable String key,
+    public ResponseEntity<java.util.Map<String, Object>> getVersion(@PathVariable String key,
                                                    @PathVariable Integer version,
                                                    HttpServletRequest request) {
         securityService.checkPermission(Permission.SECRET_READ);
@@ -64,12 +77,12 @@ public class SecretVersionController {
                 request,
                 "Version: " + version
         );
-        return ResponseEntity.ok(secretVersion);
+        return ResponseEntity.ok(toDto(secretVersion));
     }
 
     @PostMapping("/rollback/{version}")
     @Operation(summary = "Rollback secret to specific version")
-    public ResponseEntity<SecretVersion> rollbackToVersion(@PathVariable String key,
+    public ResponseEntity<java.util.Map<String, Object>> rollbackToVersion(@PathVariable String key,
                                                           @PathVariable Integer version,
                                                           HttpServletRequest request) {
         securityService.checkPermission(Permission.SECRET_WRITE);
@@ -87,16 +100,16 @@ public class SecretVersionController {
                 request,
                 "Rolled back to version: " + version
         );
-        return ResponseEntity.ok(rolledBackVersion);
+        return ResponseEntity.ok(toDto(rolledBackVersion));
     }
 
     @GetMapping("/active")
     @Operation(summary = "Get active version of secret")
-    public ResponseEntity<SecretVersion> getActiveVersion(@PathVariable String key,
+    public ResponseEntity<java.util.Map<String, Object>> getActiveVersion(@PathVariable String key,
                                                          HttpServletRequest request) {
         securityService.checkPermission(Permission.SECRET_READ);
         SecretVersion activeVersion = secretVersionService.getActiveVersion(key)
                 .orElseThrow(() -> new RuntimeException("No active version found"));
-        return ResponseEntity.ok(activeVersion);
+        return ResponseEntity.ok(toDto(activeVersion));
     }
 }

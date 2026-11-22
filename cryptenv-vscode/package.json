@@ -1,8 +1,8 @@
 {
   "name": "cryptenv",
   "displayName": "CryptEnv - Secrets Manager",
-  "description": "Encrypted environment secrets for VS Code. Sign in with JWT or API key, browse workspaces and environments, preview/copy/insert secrets at cursor, and manage AES-256-GCM encrypted vaults backed by CryptEnv.",
-  "version": "1.4.0",
+  "description": "AES-256-GCM encrypted secrets inside VS Code. Sign in with JWT, MFA or API key; manage workspaces, environments and secrets; reveal with step-up MFA; verify email and reset passwords without leaving the editor.",
+  "version": "1.5.0",
   "publisher": "maheshshinde9100",
   "author": {
     "name": "Mahesh Shinde",
@@ -37,9 +37,9 @@
   },
   "badges": [
     {
-      "url": "https://img.shields.io/badge/License-MIT-8A2BE2",
+      "url": "https://img.shields.io/badge/License-Apache--2.0-8A2BE2",
       "href": "https://github.com/maheshshinde9100/CryptEnv/blob/main/LICENSE",
-      "description": "License: MIT"
+      "description": "License: Apache-2.0"
     },
     {
       "url": "https://img.shields.io/badge/Security-AES--256--GCM-007ACC",
@@ -73,7 +73,9 @@
     "onCommand:cryptenv-vscode.previewSecret",
     "onCommand:cryptenv-vscode.copyValue",
     "onCommand:cryptenv-vscode.insertKey",
-    "onCommand:cryptenv-vscode.insertValue"
+    "onCommand:cryptenv-vscode.insertValue",
+    "onCommand:cryptenv-vscode.verifyEmail",
+    "onCommand:cryptenv-vscode.resetPassword"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -210,6 +212,20 @@
         "shortTitle": "Insert Secret Value",
         "category": "CryptEnv",
         "icon": "$(pencil)"
+      },
+      {
+        "command": "cryptenv-vscode.verifyEmail",
+        "title": "CryptEnv: Verify Email",
+        "shortTitle": "Verify Email",
+        "category": "CryptEnv",
+        "icon": "$(mail)"
+      },
+      {
+        "command": "cryptenv-vscode.resetPassword",
+        "title": "CryptEnv: Reset Password",
+        "shortTitle": "Reset Password",
+        "category": "CryptEnv",
+        "icon": "$(key)"
       }
     ],
     "viewsContainers": {
@@ -236,7 +252,7 @@
     "viewsWelcome": [
       {
         "view": "cryptenv-secrets-view",
-        "contents": "# CryptEnv Vault\n\nYour editor-native workspace for AES-256-GCM encrypted environment variables.\n\n## Get Started\n\n[Sign In](command:cryptenv-vscode.login)\u00a0\u00b7\u00a0[Create Account](command:cryptenv-vscode.register)\u00a0\u00b7\u00a0[Use API Key](command:cryptenv-vscode.setApiKey)\n\n## Configure\n\nConnected by default to the hosted CryptEnv API:\n`https://cryptenv-backend.onrender.com/api`\n\n[Use self-hosted backend](command:cryptenv-vscode.setBaseUrl)\u00a0\u00b7\u00a0[Documentation](https://github.com/maheshshinde9100/CryptEnv/tree/main/cryptenv-vscode#readme)\n\n## Features\n\n- Workspace-scoped encryption keys (16\u2013512 chars)\n- DEVELOPMENT / STAGING / PRODUCTION environments\n- Preview, copy, or insert secrets directly at the cursor\n- JWT and API-key authentication\n- VS Code SecretStorage for credential persistence\n- Self-hosted backend support"
+        "contents": "# CryptEnv Vault\n\nYour editor-native workspace for AES-256-GCM encrypted environment variables.\n\n## Get Started\n\n[Sign In](command:cryptenv-vscode.login) · [Create Account](command:cryptenv-vscode.register) · [Use API Key](command:cryptenv-vscode.setApiKey)\n\n## Configure\n\nConnected by default to the hosted CryptEnv API:\n`https://cryptenv-backend.onrender.com/api`\n\n[Use self-hosted backend](command:cryptenv-vscode.setBaseUrl) · [Documentation](https://github.com/maheshshinde9100/CryptEnv/tree/main/cryptenv-vscode#readme)\n\n## Features\n\n- Email verification, password reset, and TOTP MFA sign-in\n- Step-up MFA for revealing secrets\n- Workspace-scoped encryption keys (16–512 chars)\n- DEVELOPMENT / STAGING / PRODUCTION environments\n- Preview, copy, or insert secrets directly at the cursor\n- JWT and API-key authentication\n- VS Code SecretStorage for credential persistence\n- Self-hosted backend support"
       }
     ],
     "menus": {
@@ -320,6 +336,16 @@
         {
           "command": "cryptenv-vscode.insertValue",
           "group": "CryptEnv@23"
+        },
+        {
+          "command": "cryptenv-vscode.verifyEmail",
+          "group": "CryptEnv@4.5",
+          "when": "true"
+        },
+        {
+          "command": "cryptenv-vscode.resetPassword",
+          "group": "CryptEnv@4.6",
+          "when": "true"
         }
       ],
       "view/title": [
@@ -431,6 +457,17 @@
           "group": "3_modify@2"
         }
       ]
+    },
+    "configuration": {
+      "title": "CryptEnv",
+      "properties": {
+        "cryptenv.backendUrl": {
+          "type": "string",
+          "default": "https://cryptenv-backend.onrender.com/api",
+          "markdownDescription": "Base URL of the CryptEnv API. Change this for a self-hosted backend. If `/api` is omitted, the extension appends it automatically.",
+          "scope": "application"
+        }
+      }
     }
   },
   "scripts": {

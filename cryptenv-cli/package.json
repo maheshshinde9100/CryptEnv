@@ -1,8 +1,8 @@
 {
   "name": "cryptenv-cli",
-  "version": "1.4.0",
-  "description": "CryptEnv CLI — runtime secret injection for the CryptEnv Spring Boot API. Workspaces, secrets, and cryptenv run. Default: https://cryptenv-backend.onrender.com/api",
-  "main": "index.js",
+  "version": "1.5.0",
+  "description": "CryptEnv CLI — inject encrypted secrets into any process at runtime. Workspaces, rotation, JIT access, leak scanning. Default backend: https://cryptenv-backend.onrender.com/api",
+  "main": "bin/cryptenv.js",
   "bin": {
     "cryptenv": "bin/cryptenv.js"
   },
@@ -15,7 +15,9 @@
   "scripts": {
     "start": "node bin/cryptenv.js",
     "pack": "npm pack",
-    "test": "node --test"
+    "test": "node --test",
+    "pretest": "node -e \"require('./src/utils/ui'); require('./src/commands/auth')\"",
+    "prepack": "node --check bin/cryptenv.js"
   },
   "keywords": [
     "cli",
@@ -31,16 +33,22 @@
     "url": "https://github.com/maheshshinde9100/CryptEnv.git"
   },
   "author": "Mahesh Shinde",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "axios": "^1.6.0",
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
     "inquirer": "^8.2.5",
-    "keytar": "^7.9.0",
     "ora": "^5.4.1"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "homepage": "https://github.com/maheshshinde9100/CryptEnv#readme",
+  "bugs": {
+    "url": "https://github.com/maheshshinde9100/CryptEnv/issues"
+  },
+  "optionalDependencies": {
+    "keytar": "^7.9.0"
   }
 }

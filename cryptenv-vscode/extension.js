@@ -210,14 +210,28 @@ function activate(context) {
                 validateInput: function(v) { return !v ? 'Password is required' : null; }
             });
             if (!password) return;
-            const resp = await vscode.window.withProgress(
+            let resp = await vscode.window.withProgress(
                 { location: vscode.ProgressLocation.Notification, title: 'Signing in to CryptEnv...' },
                 function() { return api.login(email, password); }
             );
+            if (resp && resp.mfaRequired) {
+                const code = await vscode.window.showInputBox({
+                    title: 'CryptEnv Two-Factor Authentication',
+                    prompt: 'Enter the 6-digit TOTP code, or a recovery code',
+                    password: true,
+                    ignoreFocusOut: true,
+                    validateInput: function(v) { return !v ? 'Code is required' : null; }
+                });
+                if (!code) return;
+                resp = await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Notification, title: 'Verifying MFA...' },
+                    function() { return api.verifyMfa(resp.mfaToken, code.trim()); }
+                );
+            }
             if (!resp || !resp.token) {
                 throw new Error('Sign in failed: no token returned by the server.');
             }
-            await api.setJwt(resp.token);
+            await api.setJwt(resp.token, resp.refreshToken);
             const greeting = 'Welcome, ' + (resp.username || resp.email || email);
             vscode.window.showInformationMessage(greeting);
             refresh();
@@ -233,6 +247,24 @@ function activate(context) {
                 validateInput: function(v) { return !v ? 'Email is required' : null; }
             });
             if (!email) return;
+            let signupEmail = String(email).trim().toLowerCase();
+            try {
+                const check = await api.checkEmail(signupEmail);
+                if (check && check.valid === false) {
+                    const hint = check.suggestion ? ' Did you mean ' + check.suggestion + '?' : '';
+                    vscode.window.showErrorMessage((check.reason || 'This email address is not deliverable.') + hint);
+                    return;
+                }
+                if (check && check.suggestion) {
+                    const choice = await vscode.window.showInformationMessage(
+                        'Did you mean ' + check.suggestion + '?', 'Use this email', 'Keep mine'
+                    );
+                    if (choice === 'Use this email') signupEmail = check.suggestion;
+                    else if (choice !== 'Keep mine') return;
+                }
+            } catch (_) {
+                // Email pre-check is best-effort; older backends may not expose it.
+            }
             const username = await vscode.window.showInputBox({
                 title: 'Create CryptEnv Account',
                 prompt: 'Username (3-50 characters)',
@@ -267,10 +299,37 @@ function activate(context) {
             }) || '';
             await vscode.window.withProgress(
                 { location: vscode.ProgressLocation.Notification, title: 'Creating account...' },
-                function() { return api.register(email, username, password, firstName, lastName); }
+                function() { return api.register(signupEmail, username, password, firstName, lastName); }
+            );
+
+            let mailConfigured = true;
+            try {
+                const status = await api.mailStatus();
+                mailConfigured = !status || status.mailConfigured !== false;
+            } catch (_) { }
+            if (!mailConfigured) {
+                vscode.window.showWarningMessage(
+                    'Account created, but this deployment has no mail transport configured. Ask the administrator to set SMTP, BREVO_API_KEY or RESEND_API_KEY before verifying ' + signupEmail + '.'
+                );
+                return;
+            }
+
+            const code = await vscode.window.showInputBox({
+                title: 'Verify your email',
+                prompt: 'Enter the 6-digit code sent to ' + signupEmail,
+                ignoreFocusOut: true,
+                validateInput: function(v) { return /^\d{6}$/.test(String(v || '').trim()) ? null : 'The code is 6 digits'; }
+            });
+            if (!code) {
+                vscode.window.showWarningMessage('Email not verified. Use CryptEnv: Verify Email later to enter the code.');
+                return;
+            }
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Verifying email...' },
+                function() { return api.verifyEmail(signupEmail, code.trim()); }
             );
             const choice = await vscode.window.showInformationMessage(
-                'Account created successfully. Sign in now?',
+                'Email verified. Sign in now?',
                 { modal: true },
                 'Sign in'
             );
@@ -283,6 +342,7 @@ function activate(context) {
 
     subscriptions.push(vscode.commands.registerCommand('cryptenv-vscode.logout', function() {
         return Promise.resolve().then(async function() {
+            await api.logout();
             await api.clearAuth();
             vscode.window.showInformationMessage('Signed out of CryptEnv.');
             refresh();
@@ -296,7 +356,7 @@ function activate(context) {
                 { location: vscode.ProgressLocation.Window, title: 'Fetching profile...' },
                 function() { return api.getProfile(); }
             );
-            const apiPreview = profile.apiKey ? profile.apiKey.slice(0, 14) + '\u2026' : '(none)';
+            const apiPreview = profile.apiKeyPrefix ? profile.apiKeyPrefix + '\u2026' : '(not stored)';
             const lines = [
                 'Email: ' + (profile.email || '-'),
                 'Username: ' + (profile.username || '-'),
@@ -373,6 +433,75 @@ function activate(context) {
             await api.setBaseUrl(url);
             vscode.window.showInformationMessage('Backend URL saved: ' + await api.getBaseUrl());
             refresh();
+        }).catch(handleError);
+    }));
+
+    subscriptions.push(vscode.commands.registerCommand('cryptenv-vscode.verifyEmail', function() {
+        return Promise.resolve().then(async function() {
+            const email = await vscode.window.showInputBox({
+                title: 'Verify CryptEnv Email',
+                prompt: 'Email address to verify',
+                ignoreFocusOut: true,
+                validateInput: function(v) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v || '').trim()) ? null : 'Enter a valid email'; }
+            });
+            if (!email) return;
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Sending verification code...' },
+                function() { return api.resendVerification(email.trim()); }
+            );
+            const code = await vscode.window.showInputBox({
+                title: 'Verify CryptEnv Email',
+                prompt: 'Enter the 6-digit code sent to ' + email,
+                ignoreFocusOut: true,
+                validateInput: function(v) { return /^\d{6}$/.test(String(v || '').trim()) ? null : 'The code is 6 digits'; }
+            });
+            if (!code) return;
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Verifying email...' },
+                function() { return api.verifyEmail(email.trim(), code.trim()); }
+            );
+            vscode.window.showInformationMessage('Email verified. You can sign in now.');
+        }).catch(handleError);
+    }));
+
+    subscriptions.push(vscode.commands.registerCommand('cryptenv-vscode.resetPassword', function() {
+        return Promise.resolve().then(async function() {
+            const email = await vscode.window.showInputBox({
+                title: 'Reset CryptEnv Password',
+                prompt: 'Account email',
+                ignoreFocusOut: true,
+                validateInput: function(v) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v || '').trim()) ? null : 'Enter a valid email'; }
+            });
+            if (!email) return;
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Requesting reset code...' },
+                function() { return api.forgotPassword(email.trim()); }
+            );
+            const code = await vscode.window.showInputBox({
+                title: 'Reset CryptEnv Password',
+                prompt: 'Enter the 6-digit reset code sent to ' + email,
+                ignoreFocusOut: true,
+                validateInput: function(v) { return /^\d{6}$/.test(String(v || '').trim()) ? null : 'The code is 6 digits'; }
+            });
+            if (!code) return;
+            const verified = await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Verifying reset code...' },
+                function() { return api.verifyResetCode(email.trim(), code.trim()); }
+            );
+            if (!verified || !verified.resetToken) throw new Error('The server did not return a reset token.');
+            const password = await vscode.window.showInputBox({
+                title: 'Reset CryptEnv Password',
+                prompt: 'New password (at least 8 characters)',
+                password: true,
+                ignoreFocusOut: true,
+                validateInput: function(v) { return (!v || v.length < 8) ? 'Password must be at least 8 characters' : null; }
+            });
+            if (!password) return;
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Updating password...' },
+                function() { return api.resetPassword(verified.resetToken, password); }
+            );
+            vscode.window.showInformationMessage('Password updated. Sign in with your new password.');
         }).catch(handleError);
     }));
 
@@ -578,12 +707,26 @@ function activate(context) {
     async function getPlainValue(item) {
         if (!item || !item.secret) throw new Error('No secret selected. Right-click a secret and try again.');
         if (!item.environment || !item.environment.id) throw new Error('Missing environment context for this secret.');
-        let value = item.secret.value;
         try {
-            const fresh = await api.getSecretByEnvironment(item.environment.id, item.secret.key);
-            if (fresh && fresh.value !== undefined && fresh.value !== null) value = fresh.value;
-        } catch (_) { }
-        return value || '';
+            const revealed = await api.revealSecret(item.environment.id, item.secret.key);
+            return revealed.value || '';
+        } catch (error) {
+            if (!/step-?up|mfa/i.test(error.message || '')) throw error;
+            const challenge = await api.startStepUp();
+            const code = await vscode.window.showInputBox({
+                title: 'Step-up authentication',
+                prompt: 'Enter your TOTP code to reveal ' + item.secret.key,
+                password: true,
+                ignoreFocusOut: true,
+                validateInput: function(v) { return !v ? 'MFA code is required' : null; }
+            });
+            if (!code) throw new Error('MFA code is required to reveal this secret.');
+            const revealed = await api.revealSecret(item.environment.id, item.secret.key, {
+                stepUpToken: challenge.stepUpToken,
+                totpCode: code.trim()
+            });
+            return revealed.value || '';
+        }
     }
 
     subscriptions.push(vscode.commands.registerCommand('cryptenv-vscode.editSecret', function(item) {
