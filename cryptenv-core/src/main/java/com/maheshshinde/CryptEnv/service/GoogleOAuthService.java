@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 
 /** Google OAuth2 authorization-code login with signed state and HTTPS token exchange. */
 @Service
@@ -38,6 +39,11 @@ public class GoogleOAuthService {
     private static final String TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
     private static final String USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/userinfo";
     private static final long STATE_TTL_SECONDS = 600;
+
+    /** Paths that actually complete a Google login; anything else would 400 after consent. */
+    private static final Set<String> CALLBACK_PATHS = Set.of(
+            "/api/auth/oauth/google/callback",
+            "/login/oauth2/code/google");
 
     private final UserService userService;
     private final OAuthService oauthService;
@@ -70,6 +76,13 @@ public class GoogleOAuthService {
         factory.setConnectTimeout(Duration.ofSeconds(8));
         factory.setReadTimeout(Duration.ofSeconds(10));
         http = RestClient.builder().requestFactory(factory).build();
+        log.info("GoogleOAuth: client={}, redirect={}, dashboard={}, extraOrigins={}",
+                StringUtils.hasText(clientId)
+                        ? clientId.substring(0, Math.min(20, clientId.length())) + "…" : "NOT SET",
+                StringUtils.hasText(configuredRedirectUri)
+                        ? configuredRedirectUri.trim() : "derived per request",
+                dashboardUrl,
+                StringUtils.hasText(additionalOrigins) ? additionalOrigins : "none");
     }
 
     public boolean isConfigured() {
@@ -77,7 +90,15 @@ public class GoogleOAuthService {
     }
 
     public String redirectUri(String derived) {
-        return StringUtils.hasText(configuredRedirectUri) ? configuredRedirectUri.trim() : derived;
+        String configured = configuredRedirectUri == null ? "" : configuredRedirectUri.trim();
+        if (configured.isEmpty()) return derived;
+        if (CALLBACK_PATHS.stream().noneMatch(configured::contains)) {
+            log.warn("GOOGLE_REDIRECT_URI is set to {} which does not serve the CryptEnv callback; " +
+                    "using the derived URI {} instead. Register {} in Google Console.",
+                    configured, derived, derived);
+            return derived;
+        }
+        return configured;
     }
 
     public String authorizationUrl(String requestedOrigin, String redirectUri) {
