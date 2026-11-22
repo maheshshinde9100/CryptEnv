@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Button } from '../components/ui/button'
 import { BrandLogo } from '../components/BrandLogo'
+import { GoogleAuthButton } from '../components/GoogleAuthButton'
 
 export function Register() {
   const navigate = useNavigate()
@@ -159,6 +160,7 @@ export function Register() {
               {registerMutation.isPending ? 'Creating…' : 'Create account'}
             </Button>
           </form>
+          <GoogleAuthButton action="sign up" />
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
             <Link to="/login" className="text-foreground hover:underline">
